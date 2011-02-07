@@ -75,7 +75,7 @@ public class DiskStatsService extends Binder {
         }
 
         reportFreeSpace(Environment.getDataDirectory(), "Data", pw);
-        reportFreeSpace(Environment.getDownloadCacheDirectory(), "Cache", pw);
+        reportFreeSpace(new File("/cache"), "Cache", pw);
         reportFreeSpace(new File("/system"), "System", pw);
 
         // TODO: Read /proc/yaffs and report interesting values;

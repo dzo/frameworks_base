@@ -429,7 +429,7 @@ class BackupManagerService extends IBackupManager.Stub {
         // correct directory.
         mBaseStateDir = new File(Environment.getSecureDataDirectory(), "backup");
         mBaseStateDir.mkdirs();
-        mDataDir = Environment.getDownloadCacheDirectory();
+        mDataDir = new File("/cache");
 
         // Alarm receivers for scheduled backups & initialization operations
         mRunBackupReceiver = new RunBackupReceiver();
