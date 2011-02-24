@@ -112,10 +112,6 @@ public class NotificationManagerService extends INotificationManager.Stub
     private boolean mScreenOn = true;
     private boolean mInCall = false;
     private boolean mNotificationPulseEnabled;
-    // This is true if we have received a new notification while the screen is off
-    // (that is, if mLedNotification was set while the screen was off)
-    // This is reset to false when the screen is turned on.
-    private boolean mPendingPulseNotification;
 
     // for adb connected notifications
     private boolean mAdbNotificationShown = false;
@@ -1081,11 +1077,6 @@ public class NotificationManagerService extends INotificationManager.Stub
             mBatteryLight.turnOff();
         }
 
-        // clear pending pulse notification if screen is on
-        if (mScreenOn || mLedNotification == null) {
-            mPendingPulseNotification = false;
-        }
-
         // handle notification lights
         if (mLedNotification == null) {
             // get next notification, if any
@@ -1093,14 +1084,11 @@ public class NotificationManagerService extends INotificationManager.Stub
             if (n > 0) {
                 mLedNotification = mLights.get(n-1);
             }
-            if (mLedNotification != null && !mScreenOn) {
-                mPendingPulseNotification = true;
-            }
         }
 
         // we only flash if screen is off and persistent pulsing is enabled
         // and we are not currently in a call
-        if (!mPendingPulseNotification || mScreenOn || mInCall) {
+        if (mLedNotification == null || mScreenOn || mInCall) {
             mNotificationLight.turnOff();
         } else {
             int ledARGB = mLedNotification.notification.ledARGB;
