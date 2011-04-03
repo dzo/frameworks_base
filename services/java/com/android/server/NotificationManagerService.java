@@ -338,7 +338,7 @@ public class NotificationManagerService extends INotificationManager.Stub
                 int level = intent.getIntExtra("level", -1);
                 boolean batteryLow = (level >= 0 && level <= Power.LOW_BATTERY_THRESHOLD);
                 int status = intent.getIntExtra("status", BatteryManager.BATTERY_STATUS_UNKNOWN);
-                boolean batteryFull = (status == BatteryManager.BATTERY_STATUS_FULL || level >= 90);
+                boolean batteryFull = (status == BatteryManager.BATTERY_STATUS_FULL);
 
                 if (batteryCharging != mBatteryCharging ||
                         batteryLow != mBatteryLow ||

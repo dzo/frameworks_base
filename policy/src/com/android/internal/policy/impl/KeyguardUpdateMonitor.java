@@ -497,8 +497,7 @@ public class KeyguardUpdateMonitor {
     }
 
     public boolean isDeviceCharged() {
-        return mBatteryStatus == BatteryManager.BATTERY_STATUS_FULL
-                || mBatteryLevel >= 100; // in case a particular device doesn't flag it
+        return mBatteryStatus == BatteryManager.BATTERY_STATUS_FULL;
     }
 
     public int getBatteryLevel() {
