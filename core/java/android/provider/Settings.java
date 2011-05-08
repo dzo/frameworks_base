@@ -58,7 +58,16 @@ import java.util.Map;
  */
 public final class Settings {
 
-    // Intent actions for Settings
+    /**
+     * Intent actions for Settings
+     *
+     * @hide
+     */
+    public static final String SETTINGS_CHANGED = "android.settings.SETTINGS_CHANGED_ACTION";
+
+    public Settings() {
+        /* Empty for API conflicts */
+    }
 
     /**
      * Activity Action: Show system settings.
@@ -1747,6 +1756,70 @@ public final class Settings {
          * @hide
          */
         public static final String SIP_ASK_ME_EACH_TIME = "SIP_ASK_ME_EACH_TIME";
+
+        /**
+         * Torch state (flashlight)
+         * @hide
+         */
+        public static final String TORCH_STATE = "torch_state";
+
+        /**
+         * Use the Notification Power Widget? (Who wouldn't!)
+         *
+         * @hide
+         */
+        public static final String EXPANDED_VIEW_WIDGET = "expanded_view_widget";
+
+        /**
+         * Whether to hide the notification screen after clicking on a widget
+         * button
+         *
+         * @hide
+         */
+        public static final String EXPANDED_HIDE_ONCHANGE = "expanded_hide_onchange";
+
+        /**
+         * Hide scroll bar in power widget
+         *
+         * @hide
+         */
+        public static final String EXPANDED_HIDE_SCROLLBAR = "expanded_hide_scrollbar";
+
+        /**
+         * Hide indicator in status bar widget
+         *
+         * @hide
+         */
+        public static final String EXPANDED_HIDE_INDICATOR = "expanded_hide_indicator";
+
+        /**
+         * Notification Indicator Color
+         *
+         * @hide
+         */
+        public static final String EXPANDED_VIEW_WIDGET_COLOR = "expanded_widget_color";
+
+        /**
+         * Widget Buttons to Use
+         *
+         * @hide
+         */
+        public static final String WIDGET_BUTTONS = "expanded_widget_buttons";
+
+        /** @hide */
+        public static final String EXPANDED_BRIGHTNESS_MODE = "expanded_brightness_mode";
+
+        /** @hide */
+        public static final String EXPANDED_NETWORK_MODE = "expanded_network_mode";
+
+        /** @hide */
+        public static final String EXPANDED_SCREENTIMEOUT_MODE = "expanded_screentimeout_mode";
+
+        /** @hide */
+        public static final String EXPANDED_RING_MODE = "expanded_ring_mode";
+
+        /** @hide */
+        public static final String EXPANDED_FLASH_MODE = "expanded_flash_mode";
 
         /**
          * Settings to backup. This is here so that it's in the same place as the settings
