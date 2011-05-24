@@ -102,7 +102,9 @@ class PowerManagerService extends IPowerManager.Stub
     private static final int LONG_DIM_TIME = 7000;              // t+N-5 sec
 
     // How long to wait to debounce light sensor changes.
-    private static final int LIGHT_SENSOR_DELAY = 2000;
+    // We increase quickly, but decrease slowly to avoid annoying rapid changes.
+    private static final int LIGHT_SENSOR_INCREASE_DELAY = 500;
+    private static final int LIGHT_SENSOR_DECREASE_DELAY = 7500;
 
     // For debouncing the proximity sensor.
     private static final int PROXIMITY_SENSOR_DELAY = 1000;
@@ -2361,8 +2363,9 @@ class PowerManagerService extends IPowerManager.Stub
             }
             return;
         }
-
-        // do not allow light sensor value to decrease
+ 
+        // We keep track of the highest sensor value this session. It is also decreased if
+        // the lightsensor level is allowed to decrease after LIGHT_SENSOR_DECREASE_DELAY
         if (mHighestLightSensorValue < value) {
             mHighestLightSensorValue = value;
         }
@@ -2370,11 +2373,10 @@ class PowerManagerService extends IPowerManager.Stub
         if (mLightSensorValue != value) {
             mLightSensorValue = value;
             if ((mPowerState & BATTERY_LOW_BIT) == 0) {
-                // use maximum light sensor value seen since screen went on for LCD to avoid flicker
                 // we only do this if we are undocked, since lighting should be stable when
                 // stationary in a dock.
                 int lcdValue = getAutoBrightnessValue(
-                        (mIsDocked ? value : mHighestLightSensorValue),
+                        (mIsDocked ? value : (int)mLightSensorValue),
                         mLcdBacklightValues);
                 int buttonValue = getAutoBrightnessValue(value, mButtonBacklightValues);
                 int keyboardValue;
@@ -2988,8 +2990,17 @@ class PowerManagerService extends IPowerManager.Stub
                         lightSensorChangedLocked(value);
                     } else {
                         // delay processing to debounce the sensor
-                        mLightSensorPendingValue = value;
-                        mHandler.postDelayed(mAutoBrightnessTask, LIGHT_SENSOR_DELAY);
+                        if (mHighestLightSensorValue < value) {
+                            // We are increasing brightness, so lets do it quickly
+                            mLightSensorPendingValue = value;
+                            mHandler.postDelayed(mAutoBrightnessTask, LIGHT_SENSOR_INCREASE_DELAY);
+                        } else {
+                            // We are decreasing brightness, so do it slowly to avoid flickering
+                            mLightSensorPendingValue = value;
+                            mHandler.postDelayed(mAutoBrightnessTask, LIGHT_SENSOR_DECREASE_DELAY);
+                            // reduce mHighestLightSensorValue to the sensor value we just used to decrease
+                            mHighestLightSensorValue = value;
+                        }
                     }
                 } else {
                     mLightSensorPendingValue = -1;
