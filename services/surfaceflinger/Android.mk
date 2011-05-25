@@ -28,6 +28,10 @@ ifeq ($(TARGET_BOARD_PLATFORM), s5pc110)
 endif
 
 
+ifneq ($(TARGET_ELECTRONBEAM_FRAMES),)
+	LOCAL_CFLAGS += -DELECTRONBEAM_FRAMES=$(TARGET_ELECTRONBEAM_FRAMES)
+endif
+
 # need "-lrt" on Linux simulator to pick up clock_gettime
 ifeq ($(TARGET_SIMULATOR),true)
 	ifeq ($(HOST_OS),linux)
