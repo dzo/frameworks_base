@@ -1524,10 +1524,15 @@ AudioPolicyManagerBase::routing_strategy AudioPolicyManagerBase::getStrategy(
     case AudioSystem::BLUETOOTH_SCO:
         return STRATEGY_PHONE;
     case AudioSystem::RING:
-    case AudioSystem::NOTIFICATION:
     case AudioSystem::ALARM:
-    case AudioSystem::ENFORCED_AUDIBLE:
         return STRATEGY_SONIFICATION;
+    case AudioSystem::NOTIFICATION:
+        // this ought to resolve the stream switching whilst media is being played. 
+        // Same rationale as the NOTE below. (it produces a poor result) :)
+    case AudioSystem::ENFORCED_AUDIBLE:
+        // this ought to work around oxygen bug 709 and is better than deleting the ogg file. 
+        // When headset is not connected, it plays through the speaker. So no issue.
+        return STRATEGY_MEDIA;
     case AudioSystem::DTMF:
         return STRATEGY_DTMF;
     default:
