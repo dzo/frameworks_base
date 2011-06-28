@@ -16,7 +16,10 @@
 
 package com.android.internal.policy.impl;
 
+import com.android.internal.R;
+
 import android.app.Activity;
+import android.app.ActivityManager.RunningAppProcessInfo;
 import android.app.ActivityManagerNative;
 import android.app.IActivityManager;
 import android.app.IUiModeManager;
@@ -39,6 +42,7 @@ import android.os.IBinder;
 import android.os.LocalPowerManager;
 import android.os.Looper;
 import android.os.PowerManager;
+import android.os.Process;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.SystemClock;
@@ -109,10 +113,12 @@ import android.view.WindowManagerImpl;
 import android.view.WindowManagerPolicy;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
+import android.widget.Toast;
 import android.media.IAudioService;
 import android.media.AudioManager;
 
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * WindowManagerPolicy implementation for the Android phone UI.  This
@@ -519,6 +525,39 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             performHapticFeedbackLw(null, HapticFeedbackConstants.LONG_PRESS, false);
             sendCloseSystemWindows(SYSTEM_DIALOG_REASON_RECENT_APPS);
             showRecentAppsDialog();
+        }
+    };
+
+    Runnable mBackLongPress = new Runnable() {
+        public void run() {
+            if (Settings.Secure.getInt(mContext.getContentResolver(),
+                    Settings.Secure.KILL_APP_LONGPRESS_BACK, 0) == 0) {
+                // Bail out unless the user has elected to turn this on.
+                return;
+            }
+            try {
+                performHapticFeedbackLw(null, HapticFeedbackConstants.LONG_PRESS, false);
+                IActivityManager mgr = ActivityManagerNative.getDefault();
+                List<RunningAppProcessInfo> apps = mgr.getRunningAppProcesses();
+                for (RunningAppProcessInfo appInfo : apps) {
+                    int uid = appInfo.uid;
+                    // Make sure it's a foreground user application (not system,
+                    // root, phone, etc.)
+                    if (uid >= Process.FIRST_APPLICATION_UID && uid <= Process.LAST_APPLICATION_UID
+                            && appInfo.importance == RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
+                        // Kill the entire pid
+                        Toast.makeText(mContext, R.string.app_killed_message, Toast.LENGTH_SHORT).show();
+                        if (appInfo.pkgList!=null && (apps.size() > 0)){
+                                mgr.forceStopPackage(appInfo.pkgList[0]);
+                        }else{
+                                Process.killProcess(appInfo.pid);
+                        }
+                        break;
+                    }
+                }
+            } catch (RemoteException remoteException) {
+                // Do nothing; just let it go.
+            }
         }
     };
 
@@ -1151,10 +1190,15 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             mHandler.removeCallbacks(mHomeLongPress);
         }
 
+        // Clear a pending BACK longpress if the user releases Back.
+        if ((keyCode == KeyEvent.KEYCODE_BACK) && !down) {
+            mHandler.removeCallbacks(mBackLongPress);
+        }
+
         // If the HOME button is currently being held, then we do special
         // chording with it.
         if (mHomePressed) {
-            
+
             // If we have released the home key, and didn't do anything else
             // while it was pressed, then it is time to go home!
             if (keyCode == KeyEvent.KEYCODE_HOME) {
@@ -1221,6 +1265,11 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                 mHomePressed = true;
             }
             return true;
+        } else if (keyCode == KeyEvent.KEYCODE_BACK) {
+            if (down && repeatCount == 0) {
+                mHandler.postDelayed(mBackLongPress, ViewConfiguration.getGlobalActionKeyTimeout());
+            }
+            return false;
         } else if (keyCode == KeyEvent.KEYCODE_MENU) {
             // Hijack modified menu keys for debugging features
             final int chordBug = KeyEvent.META_SHIFT_ON;

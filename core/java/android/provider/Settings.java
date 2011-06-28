@@ -3539,6 +3539,13 @@ public final class Settings {
                 "inet_condition_debounce_down_delay";
 
         /**
+         * Whether to allow killing of the foreground process by long-pressing
+         * the device's BACK button.
+         * @hide
+         */
+        public static final String KILL_APP_LONGPRESS_BACK = "kill_app_on_longpress_back";
+        
+        /**
          * @hide
          */
         public static final String[] SETTINGS_TO_BACKUP = {
