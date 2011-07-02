@@ -130,6 +130,7 @@ public class StatusBarService extends Service implements CommandQueue.Callbacks 
     // top bar
     TextView mNoNotificationsTitle;
     TextView mClearButton;
+    CmBatteryMiniIcon mCmBatteryMiniIcon;
     // drag bar
     CloseDragHandle mCloseView;
     // ongoing
@@ -306,6 +307,7 @@ public class StatusBarService extends Service implements CommandQueue.Callbacks 
         mIcons = (LinearLayout)sb.findViewById(R.id.icons);
         mTickerView = sb.findViewById(R.id.ticker);
         mDateView = (DateView)sb.findViewById(R.id.date);
+        mCmBatteryMiniIcon = (CmBatteryMiniIcon)sb.findViewById(R.id.CmBatteryMiniIcon);
 
         mExpandedDialog = new ExpandedDialog(context);
         mExpandedView = expanded;

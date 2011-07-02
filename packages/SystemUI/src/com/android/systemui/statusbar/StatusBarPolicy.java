@@ -16,8 +16,8 @@
 
 package com.android.systemui.statusbar;
 
-import android.app.StatusBarManager;
 import android.app.AlertDialog;
+import android.app.StatusBarManager;
 import android.bluetooth.BluetoothA2dp;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothHeadset;
@@ -28,9 +28,7 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.res.TypedArray;
-import android.graphics.PixelFormat;
-import android.graphics.Typeface;
+import android.database.ContentObserver;
 import android.graphics.drawable.Drawable;
 import android.location.LocationManager;
 import android.media.AudioManager;
@@ -50,16 +48,8 @@ import android.telephony.PhoneStateListener;
 import android.telephony.ServiceState;
 import android.telephony.SignalStrength;
 import android.telephony.TelephonyManager;
-import android.text.format.DateFormat;
-import android.text.style.CharacterStyle;
-import android.text.style.RelativeSizeSpan;
-import android.text.style.ForegroundColorSpan;
-import android.text.style.StyleSpan;
-import android.text.Spannable;
-import android.text.SpannableStringBuilder;
 import android.util.Slog;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.WindowManagerImpl;
 import android.widget.ImageView;
@@ -72,7 +62,6 @@ import com.android.internal.telephony.TelephonyIntents;
 import com.android.internal.telephony.cdma.EriInfo;
 import com.android.internal.telephony.cdma.TtyIntent;
 import com.android.server.am.BatteryStatsService;
-
 import com.android.systemui.R;
 import android.net.wimax.WimaxManagerConstants;
 
@@ -589,11 +578,35 @@ public class StatusBarPolicy {
         }
     };
 
+    private boolean mShowCmBattery;
+    private boolean mCmBatteryStatus;
+
+    class SettingsObserver extends ContentObserver {
+        SettingsObserver(Handler handler) {
+            super(handler);
+        }
+
+        void observe() {
+            ContentResolver resolver = mContext.getContentResolver();
+            resolver.registerContentObserver(Settings.System.getUriFor(
+                    Settings.System.BATTERY_PERCENTAGE), false, this);
+        }
+
+        @Override public void onChange(boolean selfChange) {
+            updateSettings();
+        }
+    }
+
     public StatusBarPolicy(Context context) {
         mContext = context;
         mService = (StatusBarManager)context.getSystemService(Context.STATUS_BAR_SERVICE);
         mSignalStrength = new SignalStrength();
         mBatteryStats = BatteryStatsService.getService();
+
+        // settings observer for cm-battery change
+        SettingsObserver settingsObserver = new SettingsObserver(mHandler);
+        settingsObserver.observe();
+        updateSettings();
 
         // storage
         mStorageManager = (StorageManager) context.getSystemService(Context.STORAGE_SERVICE);
@@ -738,7 +751,11 @@ public class StatusBarPolicy {
     private final void updateBattery(Intent intent) {
         final int id = intent.getIntExtra("icon-small", 0);
         int level = intent.getIntExtra("level", 0);
-        mService.setIcon("battery", id, level);
+        if(!mShowCmBattery || mCmBatteryStatus != mShowCmBattery) {
+                mService.setIcon("battery", id, level);
+                mService.setIconVisibility("battery", !mShowCmBattery);
+                mCmBatteryStatus = mShowCmBattery;
+        }
 
         boolean plugged = intent.getIntExtra("plugged", 0) != 0;
         level = intent.getIntExtra("level", -1);
@@ -1473,5 +1490,14 @@ public class StatusBarPolicy {
                 break;
             }
         }
+    }
+
+    private void updateSettings(){
+        ContentResolver resolver = mContext.getContentResolver();
+
+        mShowCmBattery = (Settings.System.getInt(resolver,
+                Settings.System.BATTERY_PERCENTAGE, 0) == 1);
+        mCmBatteryStatus = !mShowCmBattery;
+        mService.setIconVisibility("battery", !mShowCmBattery);
     }
 }
