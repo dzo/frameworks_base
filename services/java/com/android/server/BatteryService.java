@@ -24,7 +24,6 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.database.ContentObserver;
 import android.os.BatteryManager;
 import android.os.Binder;
 import android.os.FileUtils;
@@ -336,18 +335,6 @@ class BatteryService extends Binder {
             mLastBatteryVoltage = mBatteryVoltage;
             mLastBatteryTemperature = mBatteryTemperature;
             mLastBatteryLevelCritical = mBatteryLevelCritical;
-
-            ContentObserver coBattery = new ContentObserver(null) {
-                @Override
-                public void onChange(boolean selfChange) {
-                    sendIntent();
-                }
-            };
-
-            mContext.getContentResolver().registerContentObserver(
-                    Settings.System.getUriFor(Settings.System.BATTERY_PERCENTAGE),
-                    false,
-                    coBattery);
         }
     }
 
@@ -456,12 +443,7 @@ class BatteryService extends Binder {
         } else if (mBatteryStatus == BatteryManager.BATTERY_STATUS_DISCHARGING ||
                 mBatteryStatus == BatteryManager.BATTERY_STATUS_NOT_CHARGING ||
                 mBatteryStatus == BatteryManager.BATTERY_STATUS_FULL) {
-            if (Settings.System.getInt(mContext.getContentResolver(),
-                Settings.System.BATTERY_PERCENTAGE, 0) == 1) {
-                    return com.android.internal.R.drawable.stat_sys_battery_alt;
-            } else {
-                    return com.android.internal.R.drawable.stat_sys_battery;
-            }
+            return com.android.internal.R.drawable.stat_sys_battery;
         } else {
             return com.android.internal.R.drawable.stat_sys_battery_unknown;
         }
