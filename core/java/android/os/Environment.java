@@ -101,7 +101,7 @@ public class Environment {
                     "Android"), "media");
 
     private static final File DOWNLOAD_CACHE_DIRECTORY
-			= new File (getDirectory("DOWNLOAD_CACHE", "/sdcard"),
+			= new File (getDirectory("EXTERNAL_STORAGE", "/sdcard"),
 			".cache");
 			
 
