@@ -432,6 +432,10 @@ public class WebSettings {
         mWebView.showZoomControls(value);
     }
 
+    public void setTextReflow(boolean value) {
+        mWebView.setTextReflow(value);
+    }
+
     /**
      * Set whether the WebView supports zoom
      */

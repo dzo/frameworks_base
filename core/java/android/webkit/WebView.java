@@ -816,6 +816,8 @@ public class WebView extends AbsoluteLayout
     //Wysie
     private boolean showZoomControls = true;
 
+    private boolean setTextReflow = true;
+
     // Used to notify listeners of a new picture.
     private PictureListener mPictureListener;
     /**
@@ -990,6 +992,10 @@ public class WebView extends AbsoluteLayout
     //Wysie
     void showZoomControls(boolean value) {
         showZoomControls = value;
+    }
+
+    void setTextReflow(boolean value) {
+        setTextReflow = value;
     }
 
     void updateMultiTouchSupport(Context context) {
@@ -5020,6 +5026,9 @@ public class WebView extends AbsoluteLayout
                 boolean reflowNow = (mActualScale - mMinZoomScale
                         <= MINIMUM_SCALE_INCREMENT)
                         || ((mActualScale <= 0.8 * mTextWrapScale));
+                if (mActualScale > mTextWrapScale) {
+                    reflowNow |= setTextReflow;
+                }
                 // force zoom after mPreviewZoomOnly is set to false so that the
                 // new view size will be passed to the WebKit
                 setNewZoomScale(mActualScale, reflowNow, true);
