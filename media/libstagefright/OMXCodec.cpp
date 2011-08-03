@@ -849,6 +849,7 @@ static size_t getFrameSize(
             CHECK(!"Should not be here. Unsupported color format.");
             break;
     }
+    return 0;
 }
 
 status_t OMXCodec::findTargetColorFormat(
@@ -3599,8 +3600,31 @@ void OMXCodec::initOutputFormat(const sp<MetaData> &inputFormat) {
                 mOutputFormat->setInt32(
                         kKeyHeight, (video_def->nFrameHeight + 15) & -16);
             } else {
-                mOutputFormat->setInt32(kKeyWidth, video_def->nFrameWidth);
-                mOutputFormat->setInt32(kKeyHeight, video_def->nFrameHeight);
+                //Update the Stride and Slice Height
+                //Allows creation of Renderer with correct height and width
+                if( mIsEncoder ){
+                    int32_t width, height;
+                    bool success = inputFormat->findInt32( kKeyWidth, &width ) &&
+                        inputFormat->findInt32( kKeyHeight, &height);
+                    CHECK( success );
+                    mOutputFormat->setInt32(kKeyWidth, width );
+                    mOutputFormat->setInt32(kKeyHeight, height );
+		}
+                else {
+                    LOGV("video_def->nStride = %d, video_def->nSliceHeight = %d", video_def->nStride,
+                            video_def->nSliceHeight );
+//                    if (video_def->nStride && video_def->nSliceHeight) {
+//                        /* Make sure we actually got the values from the decoder */
+//                        mOutputFormat->setInt32(kKeyWidth, video_def->nStride);
+//                        mOutputFormat->setInt32(kKeyHeight, video_def->nSliceHeight);
+//                    } else {
+                        /* We didn't. Use the old behavior */
+                        mOutputFormat->setInt32(kKeyWidth, video_def->nFrameWidth);
+                        mOutputFormat->setInt32(kKeyHeight, video_def->nFrameHeight);
+//                    }
+                }
+//                mOutputFormat->setInt32(kKeyWidth, video_def->nFrameWidth);
+//                mOutputFormat->setInt32(kKeyHeight, video_def->nFrameHeight);
             }
 
             mOutputFormat->setInt32(kKeyColorFormat, video_def->eColorFormat);

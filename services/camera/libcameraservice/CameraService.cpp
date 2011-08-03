@@ -1,6 +1,8 @@
 /*
 **
 ** Copyright (C) 2008, The Android Open Source Project
+** Copyright (C) 2008 HTC Inc.
+** Copyright (C) 2010, Code Aurora Forum. All rights reserved.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -14,442 +16,410 @@
 ** See the License for the specific language governing permissions and
 ** limitations under the License.
 */
-
+//#define LOG_NDEBUG 0
 #define LOG_TAG "CameraService"
+#include <utils/Log.h>
 
-#include <stdio.h>
-#include <sys/types.h>
-#include <pthread.h>
-
-#include <binder/IPCThreadState.h>
 #include <binder/IServiceManager.h>
+#include <binder/IPCThreadState.h>
+#include <utils/String16.h>
+#include <utils/Errors.h>
 #include <binder/MemoryBase.h>
 #include <binder/MemoryHeapBase.h>
-#include <cutils/atomic.h>
-#include <hardware/hardware.h>
-#include <media/AudioSystem.h>
-#include <media/mediaplayer.h>
+#include <camera/ICameraService.h>
 #include <surfaceflinger/ISurface.h>
 #include <ui/Overlay.h>
-#include <utils/Errors.h>
-#include <utils/Log.h>
-#include <utils/String16.h>
 
+#include <hardware/hardware.h>
+
+#include <media/mediaplayer.h>
+#include <media/AudioSystem.h>
 #include "CameraService.h"
+
+#include <cutils/properties.h>
+#include <cutils/atomic.h>
 
 namespace android {
 
-// ----------------------------------------------------------------------------
-// Logging support -- this is for debugging only
-// Use "adb shell dumpsys media.camera -v 1" to change it.
-static volatile int32_t gLogLevel = 0;
-
-#define LOG1(...) LOGD_IF(gLogLevel >= 1, __VA_ARGS__);
-#define LOG2(...) LOGD_IF(gLogLevel >= 2, __VA_ARGS__);
-
-static void setLogLevel(int level) {
-    android_atomic_write(level, &gLogLevel);
+extern "C" {
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <pthread.h>
+#include <signal.h>
 }
 
-// ----------------------------------------------------------------------------
+// When you enable this, as well as DEBUG_REFS=1 and
+// DEBUG_REFS_ENABLED_BY_DEFAULT=0 in libutils/RefBase.cpp, this will track all
+// references to the CameraService::Client in order to catch the case where the
+// client is being destroyed while a callback from the CameraHardwareInterface
+// is outstanding.  This is a serious bug because if we make another call into
+// CameraHardwreInterface that itself triggers a callback, we will deadlock.
+
+#define DEBUG_CLIENT_REFERENCES 1
+
+#define PICTURE_TIMEOUT seconds(5)
+
+#define DEBUG_DUMP_PREVIEW_FRAME_TO_FILE 0 /* n-th frame to write */
+#define DEBUG_DUMP_JPEG_SNAPSHOT_TO_FILE 0
+#define DEBUG_DUMP_YUV_SNAPSHOT_TO_FILE 0
+#define DEBUG_DUMP_POSTVIEW_SNAPSHOT_TO_FILE 0
+
+#if DEBUG_DUMP_PREVIEW_FRAME_TO_FILE
+static int debug_frame_cnt;
+#endif
 
 static int getCallingPid() {
     return IPCThreadState::self()->getCallingPid();
 }
 
-static int getCallingUid() {
-    return IPCThreadState::self()->getCallingUid();
+// ----------------------------------------------------------------------------
+
+void CameraService::instantiate() {
+    defaultServiceManager()->addService(
+            String16("media.camera"), new CameraService());
 }
 
 // ----------------------------------------------------------------------------
 
-// This is ugly and only safe if we never re-create the CameraService, but
-// should be ok for now.
-static CameraService *gCameraService;
-
-CameraService::CameraService()
-:mSoundRef(0)
+CameraService::CameraService() :
+    BnCameraService()
 {
-    LOGI("CameraService started (pid=%d)", getpid());
-
-    mNumberOfCameras = HAL_getNumberOfCameras();
-    if (mNumberOfCameras > MAX_CAMERAS) {
-        LOGE("Number of cameras(%d) > MAX_CAMERAS(%d).",
-             mNumberOfCameras, MAX_CAMERAS);
-        mNumberOfCameras = MAX_CAMERAS;
-    }
-
-    for (int i = 0; i < mNumberOfCameras; i++) {
-        setCameraFree(i);
-    }
-
-    gCameraService = this;
+    LOGI("CameraService started: pid=%d", getpid());
+    mUsers = 0;
 }
 
-CameraService::~CameraService() {
-    for (int i = 0; i < mNumberOfCameras; i++) {
-        if (mBusy[i]) {
-            LOGE("camera %d is still in use in destructor!", i);
-        }
+CameraService::~CameraService()
+{
+    if (mClient != 0) {
+        LOGE("mClient was still connected in destructor!");
     }
-
-    gCameraService = NULL;
 }
 
 int32_t CameraService::getNumberOfCameras() {
-    return mNumberOfCameras;
+    return 1;
 }
 
 status_t CameraService::getCameraInfo(int cameraId,
                                       struct CameraInfo* cameraInfo) {
-    if (cameraId < 0 || cameraId >= mNumberOfCameras) {
-        return BAD_VALUE;
-    }
-
-    HAL_getCameraInfo(cameraId, cameraInfo);
+    cameraInfo->facing=0;
+    cameraInfo->orientation=90;
     return OK;
 }
 
-sp<ICamera> CameraService::connect(
-        const sp<ICameraClient>& cameraClient, int cameraId) {
+sp<ICamera> CameraService::connect(const sp<ICameraClient>& cameraClient, int cameraid)
+{
     int callingPid = getCallingPid();
-    LOG1("CameraService::connect E (pid %d, id %d)", callingPid, cameraId);
-
-    sp<Client> client;
-    if (cameraId < 0 || cameraId >= mNumberOfCameras) {
-        LOGE("CameraService::connect X (pid %d) rejected (invalid cameraId %d).",
-            callingPid, cameraId);
-        return NULL;
-    }
+    LOGV("CameraService::connect E (pid %d, client %p)", callingPid,
+            cameraClient->asBinder().get());
 
     Mutex::Autolock lock(mServiceLock);
-    if (mClient[cameraId] != 0) {
-        client = mClient[cameraId].promote();
-        if (client != 0) {
-            if (cameraClient->asBinder() == client->getCameraClient()->asBinder()) {
-                LOG1("CameraService::connect X (pid %d) (the same client)",
-                    callingPid);
-                return client;
+    sp<Client> client;
+    if (mClient != 0) {
+        sp<Client> currentClient = mClient.promote();
+        if (currentClient != 0) {
+            sp<ICameraClient> currentCameraClient(currentClient->getCameraClient());
+            if (cameraClient->asBinder() == currentCameraClient->asBinder()) {
+                // This is the same client reconnecting...
+                LOGV("CameraService::connect X (pid %d, same client %p) is reconnecting...",
+                    callingPid, cameraClient->asBinder().get());
+                return currentClient;
             } else {
-                LOGW("CameraService::connect X (pid %d) rejected (existing client).",
-                    callingPid);
-                return NULL;
+                // It's another client... reject it
+                LOGE("CameraService::connect X (pid %d, new client %p) rejected. "
+                    "(old pid %d, old client %p)",
+                    callingPid, cameraClient->asBinder().get(),
+                    currentClient->mClientPid, currentCameraClient->asBinder().get());
+                if (kill(currentClient->mClientPid, 0) == -1 && errno == ESRCH) {
+                    LOGV("The old client is dead!");
+                }
+                return client;
             }
+        } else {
+            // can't promote, the previous client has died...
+            LOGE("New client (pid %d) connecting, old reference was dangling...",
+                    callingPid);
+            mClient.clear();
         }
-        mClient[cameraId].clear();
     }
 
-    if (mBusy[cameraId]) {
-        LOGW("CameraService::connect X (pid %d) rejected"
-             " (camera %d is still busy).", callingPid, cameraId);
-        return NULL;
+    if (mUsers > 0) {
+        LOGV("Still have client, rejected");
+        return client;
     }
 
-    sp<CameraHardwareInterface> hardware = HAL_openCameraHardware(cameraId);
-    if (hardware == NULL) {
-        LOGE("Fail to open camera hardware (id=%d)", cameraId);
-        return NULL;
+    // create a new Client object
+    client = new Client(this, cameraClient, callingPid);
+    mClient = client;
+    if (client->mHardware == NULL) {
+        client = NULL;
+        mClient = NULL;
+        return client;
     }
-    CameraInfo info;
-    HAL_getCameraInfo(cameraId, &info);
-    client = new Client(this, cameraClient, hardware, cameraId, info.facing,
-                        callingPid);
-    mClient[cameraId] = client;
-    LOG1("CameraService::connect X");
+#if DEBUG_CLIENT_REFERENCES
+    // Enable tracking for this object, and track increments and decrements of
+    // the refcount.
+    client->trackMe(true, true);
+#endif
+    LOGV("CameraService::connect X");
     return client;
 }
 
-void CameraService::removeClient(const sp<ICameraClient>& cameraClient) {
+void CameraService::removeClient(const sp<ICameraClient>& cameraClient)
+{
     int callingPid = getCallingPid();
-    LOG1("CameraService::removeClient E (pid %d)", callingPid);
 
-    for (int i = 0; i < mNumberOfCameras; i++) {
-        // Declare this before the lock to make absolutely sure the
-        // destructor won't be called with the lock held.
-        sp<Client> client;
+    // Declare this outside the lock to make absolutely sure the
+    // destructor won't be called with the lock held.
+    sp<Client> client;
 
-        Mutex::Autolock lock(mServiceLock);
+    Mutex::Autolock lock(mServiceLock);
 
-        // This happens when we have already disconnected (or this is
-        // just another unused camera).
-        if (mClient[i] == 0) continue;
-
-        // Promote mClient. It can fail if we are called from this path:
-        // Client::~Client() -> disconnect() -> removeClient().
-        client = mClient[i].promote();
-
-        if (client == 0) {
-            mClient[i].clear();
-            continue;
-        }
-
-        if (cameraClient->asBinder() == client->getCameraClient()->asBinder()) {
-            // Found our camera, clear and leave.
-            LOG1("removeClient: clear camera %d", i);
-            mClient[i].clear();
-            break;
-        }
+    if (mClient == 0) {
+        // This happens when we have already disconnected.
+        LOGV("removeClient (pid %d): already disconnected", callingPid);
+        return;
     }
 
-    LOG1("CameraService::removeClient X (pid %d)", callingPid);
-}
-
-sp<CameraService::Client> CameraService::getClientById(int cameraId) {
-    if (cameraId < 0 || cameraId >= mNumberOfCameras) return NULL;
-    return mClient[cameraId].promote();
-}
-
-status_t CameraService::onTransact(
-    uint32_t code, const Parcel& data, Parcel* reply, uint32_t flags) {
-    // Permission checks
-    switch (code) {
-        case BnCameraService::CONNECT:
-            const int pid = getCallingPid();
-            const int self_pid = getpid();
-            if (pid != self_pid) {
-                // we're called from a different process, do the real check
-                if (!checkCallingPermission(
-                        String16("android.permission.CAMERA"))) {
-                    const int uid = getCallingUid();
-                    LOGE("Permission Denial: "
-                         "can't use the camera pid=%d, uid=%d", pid, uid);
-                    return PERMISSION_DENIED;
-                }
-            }
-            break;
+    // Promote mClient. It can fail if we are called from this path:
+    // Client::~Client() -> disconnect() -> removeClient().
+    client = mClient.promote();
+    if (client == 0) {
+        LOGV("removeClient (pid %d): no more strong reference", callingPid);
+        mClient.clear();
+        return;
     }
 
-    return BnCameraService::onTransact(code, data, reply, flags);
+    if (cameraClient->asBinder() != client->getCameraClient()->asBinder()) {
+        // ugh! that's not our client!!
+        LOGW("removeClient (pid %d): mClient doesn't match!", callingPid);
+    } else {
+        // okay, good, forget about mClient
+        mClient.clear();
+    }
+
+    LOGV("removeClient (pid %d) done", callingPid);
 }
 
-// The reason we need this busy bit is a new CameraService::connect() request
-// may come in while the previous Client's destructor has not been run or is
-// still running. If the last strong reference of the previous Client is gone
-// but the destructor has not been finished, we should not allow the new Client
-// to be created because we need to wait for the previous Client to tear down
-// the hardware first.
-void CameraService::setCameraBusy(int cameraId) {
-    android_atomic_write(1, &mBusy[cameraId]);
+// The reason we need this count is a new CameraService::connect() request may
+// come in while the previous Client's destructor has not been run or is still
+// running. If the last strong reference of the previous Client is gone but
+// destructor has not been run, we should not allow the new Client to be created
+// because we need to wait for the previous Client to tear down the hardware
+// first.
+void CameraService::incUsers() {
+    android_atomic_inc(&mUsers);
 }
 
-void CameraService::setCameraFree(int cameraId) {
-    android_atomic_write(0, &mBusy[cameraId]);
+void CameraService::decUsers() {
+    android_atomic_dec(&mUsers);
 }
 
-// We share the media players for shutter and recording sound for all clients.
-// A reference count is kept to determine when we will actually release the
-// media players.
-
-static MediaPlayer* newMediaPlayer(const char *file) {
-    MediaPlayer* mp = new MediaPlayer();
-    if (mp->setDataSource(file, NULL) == NO_ERROR) {
+static sp<MediaPlayer> newMediaPlayer(const char *file)
+{
+    sp<MediaPlayer> mp = new MediaPlayer();
+    if (mp->setDataSource(file, NULL /* headers */) == NO_ERROR) {
         mp->setAudioStreamType(AudioSystem::ENFORCED_AUDIBLE);
         mp->prepare();
     } else {
-        LOGE("Failed to load CameraService sounds: %s", file);
-        return NULL;
+        mp.clear();
+        LOGE("Failed to load CameraService sounds.");
     }
     return mp;
 }
 
-void CameraService::loadSound() {
-    Mutex::Autolock lock(mSoundLock);
-    LOG1("CameraService::loadSound ref=%d", mSoundRef);
-    if (mSoundRef++) return;
-
-    mSoundPlayer[SOUND_SHUTTER] = newMediaPlayer("/system/media/audio/ui/camera_click.ogg");
-    mSoundPlayer[SOUND_RECORDING] = newMediaPlayer("/system/media/audio/ui/VideoRecord.ogg");
-}
-
-void CameraService::releaseSound() {
-    Mutex::Autolock lock(mSoundLock);
-    LOG1("CameraService::releaseSound ref=%d", mSoundRef);
-    if (--mSoundRef) return;
-
-    for (int i = 0; i < NUM_SOUNDS; i++) {
-        if (mSoundPlayer[i] != 0) {
-            mSoundPlayer[i]->disconnect();
-            mSoundPlayer[i].clear();
-        }
-    }
-}
-
-void CameraService::playSound(sound_kind kind) {
-    LOG1("playSound(%d)", kind);
-    Mutex::Autolock lock(mSoundLock);
-    sp<MediaPlayer> player = mSoundPlayer[kind];
-    if (player != 0) {
-        // do not play the sound if stream volume is 0
-        // (typically because ringer mode is silent).
-        int index;
-        AudioSystem::getStreamVolumeIndex(AudioSystem::ENFORCED_AUDIBLE, &index);
-        if (index != 0) {
-            player->seekTo(0);
-            player->start();
-        }
-    }
-}
-
-// ----------------------------------------------------------------------------
-
 CameraService::Client::Client(const sp<CameraService>& cameraService,
-        const sp<ICameraClient>& cameraClient,
-        const sp<CameraHardwareInterface>& hardware,
-        int cameraId, int cameraFacing, int clientPid) {
+        const sp<ICameraClient>& cameraClient, pid_t clientPid)
+{
     int callingPid = getCallingPid();
-    LOG1("Client::Client E (pid %d)", callingPid);
-
+    char value[PROPERTY_VALUE_MAX];
+    LOGV("Client::Client E (pid %d)", callingPid);
     mCameraService = cameraService;
     mCameraClient = cameraClient;
-    mHardware = hardware;
-    mCameraId = cameraId;
-    mCameraFacing = cameraFacing;
     mClientPid = clientPid;
-    mUseOverlay = mHardware->useOverlay();
-    mMsgEnabled = 0;
+    mHardware = openCameraHardware();
 
-    mHardware->setCallbacks(notifyCallback,
-                            dataCallback,
-                            dataCallbackTimestamp,
-                            (void *)cameraId);
+    if (mHardware != NULL) {
+       mUseOverlay = mHardware->useOverlay();
 
-    // Enable zoom, error, and focus messages by default
-    enableMsgType(CAMERA_MSG_ERROR |
-                  CAMERA_MSG_ZOOM |
-                  CAMERA_MSG_FOCUS);
-    mOverlayW = 0;
-    mOverlayH = 0;
+       mHardware->setCallbacks(notifyCallback,
+                               dataCallback,
+                               dataCallbackTimestamp,
+                               mCameraService.get());
 
-    // Callback is disabled by default
-    mPreviewCallbackFlag = FRAME_CALLBACK_FLAG_NOOP;
-    mOrientation = getOrientation(0, mCameraFacing == CAMERA_FACING_FRONT);
-    mOrientationChanged = false;
-    cameraService->setCameraBusy(cameraId);
-    cameraService->loadSound();
-    LOG1("Client::Client X (pid %d)", callingPid);
-}
+       // Enable zoom, error, and focus messages by default
+       mHardware->enableMsgType(CAMERA_MSG_ERROR |
+                                CAMERA_MSG_ZOOM |
+                                CAMERA_MSG_FOCUS);
+       property_get("persist.camera.shutter.disable", value, "0");
+       int disableShutterSound = atoi(value);
+       if(disableShutterSound != 1)
+           mMediaPlayerClick = newMediaPlayer("/system/media/audio/ui/camera_click.ogg");
+       mMediaPlayerBeep = newMediaPlayer("/system/media/audio/ui/VideoRecord.ogg");
 
-static void *unregister_surface(void *arg) {
-    ISurface *surface = (ISurface *)arg;
-    surface->unregisterBuffers();
-    IPCThreadState::self()->flushCommands();
-    return NULL;
-}
+       mOverlayW = 0;
+       mOverlayH = 0;
+       mPixelFormat = HAL_PIXEL_FORMAT_YCrCb_420_SP; //_ADRENO;
 
-// tear down the client
-CameraService::Client::~Client() {
-    int callingPid = getCallingPid();
-    LOG1("Client::~Client E (pid %d, this %p)", callingPid, this);
-
-    if (mSurface != 0 && !mUseOverlay) {
-        pthread_t thr;
-        // We unregister the buffers in a different thread because binder does
-        // not let us make sychronous transactions in a binder destructor (that
-        // is, upon our reaching a refcount of zero.)
-        pthread_create(&thr,
-                       NULL,  // attr
-                       unregister_surface,
-                       mSurface.get());
-        pthread_join(thr, NULL);
+      // Callback is disabled by default
+      mPreviewCallbackFlag = FRAME_CALLBACK_FLAG_NOOP;
+      mOrientation = 0;
+      cameraService->incUsers();
     }
-
-    // set mClientPid to let disconnet() tear down the hardware
-    mClientPid = callingPid;
-    disconnect();
-    mCameraService->releaseSound();
-    LOG1("Client::~Client X (pid %d, this %p)", callingPid, this);
+    LOGD("Client::Client X (pid %d)", callingPid);
 }
 
-// ----------------------------------------------------------------------------
-
-status_t CameraService::Client::checkPid() const {
+status_t CameraService::Client::checkPid()
+{
     int callingPid = getCallingPid();
-    if (callingPid == mClientPid) return NO_ERROR;
-
-    LOGW("attempt to use a locked camera from a different process"
-         " (old pid %d, new pid %d)", mClientPid, callingPid);
-    return EBUSY;
+    if (mClientPid == callingPid) return NO_ERROR;
+    LOGW("Attempt to use locked camera (client %p) from different process "
+        " (old pid %d, new pid %d)",
+        getCameraClient()->asBinder().get(), mClientPid, callingPid);
+    return -EBUSY;
 }
 
-status_t CameraService::Client::checkPidAndHardware() const {
-    status_t result = checkPid();
-    if (result != NO_ERROR) return result;
-    if (mHardware == 0) {
-        LOGE("attempt to use a camera after disconnect() (pid %d)", getCallingPid());
-        return INVALID_OPERATION;
-    }
-    return NO_ERROR;
-}
-
-status_t CameraService::Client::lock() {
+status_t CameraService::Client::lock()
+{
     int callingPid = getCallingPid();
-    LOG1("lock (pid %d)", callingPid);
-    Mutex::Autolock lock(mLock);
-
+    LOGV("lock from pid %d (mClientPid %d)", callingPid, mClientPid);
+    Mutex::Autolock _l(mLock);
     // lock camera to this client if the the camera is unlocked
     if (mClientPid == 0) {
         mClientPid = callingPid;
         return NO_ERROR;
     }
-
-    // returns NO_ERROR if the client already owns the camera, EBUSY otherwise
+    // returns NO_ERROR if the client already owns the camera, -EBUSY otherwise
     return checkPid();
 }
 
-status_t CameraService::Client::unlock() {
+status_t CameraService::Client::unlock()
+{
     int callingPid = getCallingPid();
-    LOG1("unlock (pid %d)", callingPid);
-    Mutex::Autolock lock(mLock);
-
-    // allow anyone to use camera (after they lock the camera)
+    LOGV("unlock from pid %d (mClientPid %d)", callingPid, mClientPid);
+    Mutex::Autolock _l(mLock);
+    // allow anyone to use camera
     status_t result = checkPid();
     if (result == NO_ERROR) {
         mClientPid = 0;
-        LOG1("clear mCameraClient (pid %d)", callingPid);
-        // we need to remove the reference to ICameraClient so that when the app
-        // goes away, the reference count goes to 0.
+        LOGV("clear mCameraClient (pid %d)", callingPid);
+        // we need to remove the reference so that when app goes
+        // away, the reference count goes to 0.
         mCameraClient.clear();
     }
     return result;
 }
 
-// connect a new client to the camera
-status_t CameraService::Client::connect(const sp<ICameraClient>& client) {
+status_t CameraService::Client::connect(const sp<ICameraClient>& client)
+{
     int callingPid = getCallingPid();
-    LOG1("connect E (pid %d)", callingPid);
-    Mutex::Autolock lock(mLock);
 
-    if (mClientPid != 0 && checkPid() != NO_ERROR) {
-        LOGW("Tried to connect to a locked camera (old pid %d, new pid %d)",
-                mClientPid, callingPid);
-        return EBUSY;
+    // connect a new process to the camera
+    LOGV("Client::connect E (pid %d, client %p)", callingPid, client->asBinder().get());
+
+    // I hate this hack, but things get really ugly when the media recorder
+    // service is handing back the camera to the app. The ICameraClient
+    // destructor will be called during the same IPC, making it look like
+    // the remote client is trying to disconnect. This hack temporarily
+    // sets the mClientPid to an invalid pid to prevent the hardware from
+    // being torn down.
+    {
+
+        // hold a reference to the old client or we will deadlock if the client is
+        // in the same process and we hold the lock when we remove the reference
+        sp<ICameraClient> oldClient;
+        {
+            Mutex::Autolock _l(mLock);
+            if (mClientPid != 0 && checkPid() != NO_ERROR) {
+                LOGW("Tried to connect to locked camera (old pid %d, new pid %d)",
+                        mClientPid, callingPid);
+                return -EBUSY;
+            }
+            oldClient = mCameraClient;
+
+            // did the client actually change?
+            if ((mCameraClient != NULL) && (client->asBinder() == mCameraClient->asBinder())) {
+                LOGV("Connect to the same client");
+                return NO_ERROR;
+            }
+
+            mCameraClient = client;
+            mClientPid = -1;
+            mPreviewCallbackFlag = FRAME_CALLBACK_FLAG_NOOP;
+            LOGV("Connect to the new client (pid %d, client %p)",
+                callingPid, mCameraClient->asBinder().get());
+        }
+
     }
-
-    if (mCameraClient != 0 && (client->asBinder() == mCameraClient->asBinder())) {
-        LOG1("Connect to the same client");
-        return NO_ERROR;
-    }
-
-    mPreviewCallbackFlag = FRAME_CALLBACK_FLAG_NOOP;
+    // the old client destructor is called when oldClient goes out of scope
+    // now we set the new PID to lock the interface again
     mClientPid = callingPid;
-    mCameraClient = client;
 
-    LOG1("connect X (pid %d)", callingPid);
     return NO_ERROR;
 }
 
-void CameraService::Client::disconnect() {
-    int callingPid = getCallingPid();
-    LOG1("disconnect E (pid %d)", callingPid);
-    Mutex::Autolock lock(mLock);
+#if HAVE_ANDROID_OS
+static void *unregister_surface(void *arg)
+{
+    ISurface *surface = (ISurface *)arg;
+    surface->unregisterBuffers();
+    IPCThreadState::self()->flushCommands();
+    return NULL;
+}
+#endif
 
-    if (checkPid() != NO_ERROR) {
-        LOGW("different client - don't disconnect");
-        return;
+CameraService::Client::~Client()
+{
+    int callingPid = getCallingPid();
+
+    // tear down client
+    LOGV("Client::~Client E (pid %d, client %p)",
+            callingPid, getCameraClient()->asBinder().get());
+    if (mSurface != 0 && !mUseOverlay) {
+#if HAVE_ANDROID_OS
+        pthread_t thr;
+        // We unregister the buffers in a different thread because binder does
+        // not let us make sychronous transactions in a binder destructor (that
+        // is, upon our reaching a refcount of zero.)
+        pthread_create(&thr, NULL,
+                       unregister_surface,
+                       mSurface.get());
+        pthread_join(thr, NULL);
+#else
+        mSurface->unregisterBuffers();
+#endif
     }
 
+    if (mMediaPlayerBeep.get() != NULL) {
+        mMediaPlayerBeep->disconnect();
+        mMediaPlayerBeep.clear();
+    }
+    if (mMediaPlayerClick.get() != NULL) {
+        mMediaPlayerClick->disconnect();
+        mMediaPlayerClick.clear();
+    }
+
+    // make sure we tear down the hardware
+    mClientPid = callingPid;
+    disconnect();
+    LOGV("Client::~Client X (pid %d)", mClientPid);
+}
+
+void CameraService::Client::disconnect()
+{
+    int callingPid = getCallingPid();
+
+    LOGV("Client::disconnect() E (pid %d client %p)",
+            callingPid, getCameraClient()->asBinder().get());
+
+    Mutex::Autolock lock(mLock);
     if (mClientPid <= 0) {
-        LOG1("camera is unlocked (mClientPid = %d), don't tear down hardware", mClientPid);
+        LOGV("camera is unlocked (mClientPid = %d), don't tear down hardware", mClientPid);
+        return;
+    }
+    if (checkPid() != NO_ERROR) {
+        LOGV("Different client - don't disconnect");
         return;
     }
 
@@ -457,502 +427,759 @@ void CameraService::Client::disconnect() {
     // from the user directly, or called by the destructor.
     if (mHardware == 0) return;
 
-    LOG1("hardware teardown");
+    LOGV("hardware teardown");
     // Before destroying mHardware, we must make sure it's in the
     // idle state.
-    // Turn off all messages.
-    disableMsgType(CAMERA_MSG_ALL_MSGS);
     mHardware->stopPreview();
+    // Cancel all picture callbacks.
+    mHardware->disableMsgType(CAMERA_MSG_SHUTTER |
+                              CAMERA_MSG_POSTVIEW_FRAME |
+                              CAMERA_MSG_RAW_IMAGE |
+                              CAMERA_MSG_COMPRESSED_IMAGE);
     mHardware->cancelPicture();
+    // Turn off remaining messages.
+    mHardware->disableMsgType(CAMERA_MSG_ALL_MSGS);
     // Release the hardware resources.
     mHardware->release();
     // Release the held overlay resources.
-    if (mUseOverlay) {
+    if (mUseOverlay)
+    {
+        /* Release previous overlay handle */
+        if( mOverlay != NULL)
+            mOverlay->destroy();
         mOverlayRef = 0;
     }
     mHardware.clear();
 
     mCameraService->removeClient(mCameraClient);
-    mCameraService->setCameraFree(mCameraId);
+    mCameraService->decUsers();
 
-    LOG1("disconnect X (pid %d)", callingPid);
+    LOGV("Client::disconnect() X (pid %d)", callingPid);
 }
 
-// ----------------------------------------------------------------------------
-
-// set the ISurface that the preview will use
-status_t CameraService::Client::setPreviewDisplay(const sp<ISurface>& surface) {
-    LOG1("setPreviewDisplay(%p) (pid %d)", surface.get(), getCallingPid());
+// pass the buffered ISurface to the camera service
+status_t CameraService::Client::setPreviewDisplay(const sp<ISurface>& surface)
+{
+    LOGV("setPreviewDisplay(%p) (pid %d)",
+         ((surface == NULL) ? NULL : surface.get()), getCallingPid());
     Mutex::Autolock lock(mLock);
-    status_t result = checkPidAndHardware();
+    status_t result = checkPid();
     if (result != NO_ERROR) return result;
 
+    Mutex::Autolock surfaceLock(mSurfaceLock);
     result = NO_ERROR;
-
-    // return if no change in surface.
     // asBinder() is safe on NULL (returns NULL)
-    if (surface->asBinder() == mSurface->asBinder()) {
-        return result;
-    }
-
-    if (mSurface != 0) {
-        LOG1("clearing old preview surface %p", mSurface.get());
-        if (mUseOverlay) {
-            // Force the destruction of any previous overlay
-            sp<Overlay> dummy;
-            mHardware->setOverlay(dummy);
-            mOverlayRef = 0;
-        } else {
-            mSurface->unregisterBuffers();
+    if (surface->asBinder() != mSurface->asBinder()) {
+        if (mSurface != 0) {
+            LOGV("clearing old preview surface %p", mSurface.get());
+            if ( !mUseOverlay)
+            {
+                mSurface->unregisterBuffers();
+            }
+            else
+            {
+                // Force the destruction of any previous overlay
+                sp<Overlay> dummy;
+                mHardware->setOverlay( dummy );
+            }
         }
-    }
-    mSurface = surface;
-    mOverlayRef = 0;
-    // If preview has been already started, set overlay or register preview
-    // buffers now.
-    if (mHardware->previewEnabled()) {
-        if (mUseOverlay) {
-            result = setOverlay();
-        } else if (mSurface != 0) {
-            result = registerPreviewBuffers();
-        }
-    }
-
-    return result;
-}
-
-status_t CameraService::Client::registerPreviewBuffers() {
-    int w, h;
-    CameraParameters params(mHardware->getParameters());
-    params.getPreviewSize(&w, &h);
-
-    // FIXME: don't use a hardcoded format here.
-    ISurface::BufferHeap buffers(w, h, w, h,
-                                 HAL_PIXEL_FORMAT_YCrCb_420_SP,
-                                 mOrientation,
-                                 0,
-                                 mHardware->getPreviewHeap());
-
-    status_t result = mSurface->registerBuffers(buffers);
-    if (result != NO_ERROR) {
-        LOGE("registerBuffers failed with status %d", result);
-    }
-    return result;
-}
-
-status_t CameraService::Client::setOverlay() {
-    int w, h;
-    CameraParameters params(mHardware->getParameters());
-    params.getPreviewSize(&w, &h);
-
-    if (w != mOverlayW || h != mOverlayH || mOrientationChanged) {
-        // Force the destruction of any previous overlay
-        sp<Overlay> dummy;
-        mHardware->setOverlay(dummy);
+        mSurface = surface;
         mOverlayRef = 0;
-        mOrientationChanged = false;
-    }
-
-    status_t result = NO_ERROR;
-    if (mSurface == 0) {
-        result = mHardware->setOverlay(NULL);
-    } else {
-        if (mOverlayRef == 0) {
-            // FIXME:
-            // Surfaceflinger may hold onto the previous overlay reference for some
-            // time after we try to destroy it. retry a few times. In the future, we
-            // should make the destroy call block, or possibly specify that we can
-            // wait in the createOverlay call if the previous overlay is in the
-            // process of being destroyed.
-            for (int retry = 0; retry < 50; ++retry) {
-                mOverlayRef = mSurface->createOverlay(w, h, OVERLAY_FORMAT_DEFAULT,
-                                                      mOrientation);
-                if (mOverlayRef != 0) break;
-                LOGW("Overlay create failed - retrying");
-                usleep(20000);
+        // If preview has been already started, set overlay or register preview
+        // buffers now.
+        if (mHardware->previewEnabled() || mUseOverlay) {
+            if (mUseOverlay) {
+                if( mSurface != NULL)
+                    result = setOverlay();
+            } else if (mSurface != 0) {
+                result = registerPreviewBuffers();
             }
-            if (mOverlayRef == 0) {
-                LOGE("Overlay Creation Failed!");
-                return -EINVAL;
-            }
-            result = mHardware->setOverlay(new Overlay(mOverlayRef));
         }
     }
-    if (result != NO_ERROR) {
-        LOGE("mHardware->setOverlay() failed with status %d\n", result);
-        return result;
-    }
-
-    mOverlayW = w;
-    mOverlayH = h;
-
     return result;
 }
 
 // set the preview callback flag to affect how the received frames from
 // preview are handled.
-void CameraService::Client::setPreviewCallbackFlag(int callback_flag) {
-    LOG1("setPreviewCallbackFlag(%d) (pid %d)", callback_flag, getCallingPid());
+void CameraService::Client::setPreviewCallbackFlag(int callback_flag)
+{
+    LOGV("setPreviewCallbackFlag (pid %d)", getCallingPid());
     Mutex::Autolock lock(mLock);
-    if (checkPidAndHardware() != NO_ERROR) return;
-
+    if (checkPid() != NO_ERROR) return;
     mPreviewCallbackFlag = callback_flag;
 
-    // If we don't use overlay, we always need the preview frame for display.
-    // If we do use overlay, we only need the preview frame if the user
-    // wants the data.
-    if (mUseOverlay) {
-        if(mPreviewCallbackFlag & FRAME_CALLBACK_FLAG_ENABLE_MASK) {
-            enableMsgType(CAMERA_MSG_PREVIEW_FRAME);
-        } else {
-            disableMsgType(CAMERA_MSG_PREVIEW_FRAME);
-        }
+    if(mUseOverlay) {
+        if(mPreviewCallbackFlag & FRAME_CALLBACK_FLAG_ENABLE_MASK)
+            mHardware->enableMsgType(CAMERA_MSG_PREVIEW_FRAME);
+        else
+            mHardware->disableMsgType(CAMERA_MSG_PREVIEW_FRAME);
     }
 }
 
 // start preview mode
-status_t CameraService::Client::startPreview() {
-    LOG1("startPreview (pid %d)", getCallingPid());
-    return startCameraMode(CAMERA_PREVIEW_MODE);
-}
+status_t CameraService::Client::startCameraMode(camera_mode mode)
+{
+    int callingPid = getCallingPid();
 
-// start recording mode
-status_t CameraService::Client::startRecording() {
-    LOG1("startRecording (pid %d)", getCallingPid());
-    return startCameraMode(CAMERA_RECORDING_MODE);
-}
+    LOGV("startCameraMode(%d) (pid %d)", mode, callingPid);
 
-// start preview or recording
-status_t CameraService::Client::startCameraMode(camera_mode mode) {
-    LOG1("startCameraMode(%d)", mode);
+    /* we cannot call into mHardware with mLock held because
+     * mHardware has callbacks onto us which acquire this lock
+     */
+
     Mutex::Autolock lock(mLock);
-    status_t result = checkPidAndHardware();
+    status_t result = checkPid();
     if (result != NO_ERROR) return result;
 
+    if (mHardware == 0) {
+        LOGE("mHardware is NULL, returning.");
+        return INVALID_OPERATION;
+    }
+
     switch(mode) {
-        case CAMERA_PREVIEW_MODE:
-            if (mSurface == 0) {
-                LOG1("mSurface is not set yet.");
-                // still able to start preview in this case.
-            }
-            return startPreviewMode();
-        case CAMERA_RECORDING_MODE:
-            if (mSurface == 0) {
-                LOGE("mSurface must be set before startRecordingMode.");
-                return INVALID_OPERATION;
-            }
-            return startRecordingMode();
-        default:
-            return UNKNOWN_ERROR;
+    case CAMERA_RECORDING_MODE:
+        if (mSurface == 0) {
+            LOGE("setPreviewDisplay must be called before startRecordingMode.");
+            return INVALID_OPERATION;
+        }
+        return startRecordingMode();
+
+    default: // CAMERA_PREVIEW_MODE
+        if (mSurface == 0) {
+            LOGV("mSurface is not set yet.");
+        }
+        return startPreviewMode();
     }
 }
 
-status_t CameraService::Client::startPreviewMode() {
-    LOG1("startPreviewMode");
-    status_t result = NO_ERROR;
+status_t CameraService::Client::startRecordingMode()
+{
+    LOGV("startRecordingMode (pid %d)", getCallingPid());
 
-    // if preview has been enabled, nothing needs to be done
-    if (mHardware->previewEnabled()) {
-        return NO_ERROR;
-    }
+    status_t ret = UNKNOWN_ERROR;
 
-    if (mUseOverlay) {
-        // If preview display has been set, set overlay now.
-        if (mSurface != 0) {
-            result = setOverlay();
-        }
-        if (result != NO_ERROR) return result;
-        result = mHardware->startPreview();
-    } else {
-        enableMsgType(CAMERA_MSG_PREVIEW_FRAME);
-        result = mHardware->startPreview();
-        if (result != NO_ERROR) return result;
-        // If preview display has been set, register preview buffers now.
-        if (mSurface != 0) {
-           // Unregister here because the surface may be previously registered
-           // with the raw (snapshot) heap.
-           mSurface->unregisterBuffers();
-           result = registerPreviewBuffers();
+    // if preview has not been started, start preview first
+    if (!mHardware->previewEnabled()) {
+        ret = startPreviewMode();
+        if (ret != NO_ERROR) {
+            return ret;
         }
     }
-    return result;
-}
-
-status_t CameraService::Client::startRecordingMode() {
-    LOG1("startRecordingMode");
-    status_t result = NO_ERROR;
 
     // if recording has been enabled, nothing needs to be done
     if (mHardware->recordingEnabled()) {
         return NO_ERROR;
     }
 
-    // if preview has not been started, start preview first
-    if (!mHardware->previewEnabled()) {
-        result = startPreviewMode();
-        if (result != NO_ERROR) {
-            return result;
-        }
-    }
+    mHardware->enableMsgType(CAMERA_MSG_VIDEO_FRAME);
 
     // start recording mode
-    enableMsgType(CAMERA_MSG_VIDEO_FRAME);
-    mCameraService->playSound(SOUND_RECORDING);
-    result = mHardware->startRecording();
-    if (result != NO_ERROR) {
-        LOGE("mHardware->startRecording() failed with status %d", result);
+    ret = mHardware->startRecording();
+    if (ret != NO_ERROR) {
+        LOGE("mHardware->startRecording() failed with status %d", ret);
     }
-    return result;
+    return ret;
+}
+
+status_t CameraService::Client::setOverlay()
+{
+    LOGV("setOverlay");
+    int w, h;
+    CameraParameters params(mHardware->getParameters());
+    params.getPreviewSize(&w, &h);
+
+    if ( w != mOverlayW || h != mOverlayH )
+    {
+        // Force the destruction of any previous overlay
+        sp<Overlay> dummy;
+        mHardware->setOverlay( dummy );
+        mOverlayRef = 0;
+        if(mOverlay != NULL)
+            mOverlay->destroy();
+    }
+
+    status_t ret = NO_ERROR;
+    if (mSurface != 0) {
+        if (mOverlayRef.get() == NULL) {
+
+            // FIXME:
+            // Surfaceflinger may hold onto the previous overlay reference for some
+            // time after we try to destroy it. retry a few times. In the future, we
+            // should make the destroy call block, or possibly specify that we can
+            // wait in the createOverlay call if the previous overlay is in the 
+            // process of being destroyed.
+            for (int retry = 0; retry < 50; ++retry) {
+                mOverlayRef = mSurface->createOverlay(w, h, OVERLAY_FORMAT_YCbCr_420_SP,
+                                                      mOrientation);
+                if (mOverlayRef != NULL) break;
+                LOGW("Overlay create failed - retrying");
+                usleep(20000);
+            }
+            if ( mOverlayRef.get() == NULL )
+            {
+                LOGE("Overlay Creation Failed!");
+                return -EINVAL;
+            }
+            mOverlay = new Overlay(mOverlayRef);
+            ret = mHardware->setOverlay(mOverlay);
+        }
+    } else {
+        ret = mHardware->setOverlay(NULL);
+    }
+    if (ret != NO_ERROR) {
+        LOGE("mHardware->setOverlay() failed with status %d\n", ret);
+    }
+
+    mOverlayW = w;
+    mOverlayH = h;
+
+    return ret;
+}
+
+status_t CameraService::Client::registerPreviewBuffers()
+{
+    int w, h;
+    CameraParameters params(mHardware->getParameters());
+    params.getPreviewSize(&w, &h);
+
+    /* Check for the preview format requested by the application and pass
+     * the same information while registering */
+    const char * previewFormat = params.get(CameraParameters::KEY_PREVIEW_FORMAT);
+    if(!strcmp(previewFormat, CameraParameters::PIXEL_FORMAT_YUV420SP_ADRENO))
+        mPixelFormat = HAL_PIXEL_FORMAT_YCrCb_420_SP_ADRENO;
+    LOGI("registerPreviewBuffers: previewFormat = %s and PixelFormat = %d",
+                                                   previewFormat, mPixelFormat);
+
+    ISurface::BufferHeap buffers(w, h, w, h,
+                                 mPixelFormat,
+                                 mOrientation,
+                                 0,
+                                 mHardware->getPreviewHeap());
+
+    status_t ret = mSurface->registerBuffers(buffers);
+    if (ret != NO_ERROR) {
+        LOGE("registerBuffers failed with status %d", ret);
+    }
+    return ret;
+}
+
+status_t CameraService::Client::startPreviewMode()
+{
+    LOGV("startPreviewMode (pid %d)", getCallingPid());
+
+    // if preview has been enabled, nothing needs to be done
+    if (mHardware->previewEnabled()) {
+        return NO_ERROR;
+    }
+
+    // start preview mode
+#if DEBUG_DUMP_PREVIEW_FRAME_TO_FILE
+    debug_frame_cnt = 0;
+#endif
+    status_t ret = NO_ERROR;
+
+    if (mUseOverlay) {
+        // If preview display has been set, set overlay now.
+        if (mSurface != 0) {
+            ret = setOverlay();
+        }
+        if (ret != NO_ERROR) return ret;
+        ret = mHardware->startPreview();
+    } else {
+        mHardware->enableMsgType(CAMERA_MSG_PREVIEW_FRAME);
+        ret = mHardware->startPreview();
+        if (ret != NO_ERROR) return ret;
+        // If preview display has been set, register preview buffers now.
+        if (mSurface != 0) {
+           // Unregister here because the surface registered with raw heap.
+           mSurface->unregisterBuffers();
+           ret = registerPreviewBuffers();
+        }
+    }
+    return ret;
+}
+
+status_t CameraService::Client::getBufferInfo(sp<IMemory>& Frame, size_t *alignedSize)
+{
+    LOGD(" getBufferInfo : E");
+    if (mHardware == NULL) {
+        LOGE("mHardware is NULL, returning.");
+        Frame = NULL;
+	return INVALID_OPERATION;
+    }
+    return mHardware->getBufferInfo(Frame, alignedSize);
+}
+
+status_t CameraService::Client::startPreview()
+{
+    LOGV("startPreview (pid %d)", getCallingPid());
+
+    return startCameraMode(CAMERA_PREVIEW_MODE);
+}
+
+status_t CameraService::Client::startRecording()
+{
+    LOGV("startRecording (pid %d)", getCallingPid());
+
+    if (mMediaPlayerBeep.get() != NULL) {
+        // do not play record jingle if stream volume is 0
+        // (typically because ringer mode is silent).
+        int index;
+        AudioSystem::getStreamVolumeIndex(AudioSystem::ENFORCED_AUDIBLE, &index);
+        if (index != 0) {
+            mMediaPlayerBeep->seekTo(0);
+            mMediaPlayerBeep->start();
+        }
+    }
+    return startCameraMode(CAMERA_RECORDING_MODE);
 }
 
 // stop preview mode
-void CameraService::Client::stopPreview() {
-    LOG1("stopPreview (pid %d)", getCallingPid());
-    Mutex::Autolock lock(mLock);
-    if (checkPidAndHardware() != NO_ERROR) return;
+void CameraService::Client::stopPreview()
+{
+    LOGV("stopPreview (pid %d)", getCallingPid());
 
-    disableMsgType(CAMERA_MSG_PREVIEW_FRAME);
-    mHardware->stopPreview();
+    // hold main lock during state transition
+    {
+        Mutex::Autolock lock(mLock);
+        if (checkPid() != NO_ERROR) return;
 
-    if (mSurface != 0 && !mUseOverlay) {
-        mSurface->unregisterBuffers();
+        if (mHardware == 0) {
+            LOGE("mHardware is NULL, returning.");
+            return;
+        }
+
+        mHardware->stopPreview();
+        mHardware->disableMsgType(CAMERA_MSG_PREVIEW_FRAME);
+        LOGV("stopPreview(), hardware stopped OK");
+
+        if (mSurface != 0 && !mUseOverlay) {
+            mSurface->unregisterBuffers();
+        }
     }
 
-    mPreviewBuffer.clear();
+    // hold preview buffer lock
+    {
+        Mutex::Autolock lock(mPreviewLock);
+        mPreviewBuffer.clear();
+    }
 }
 
 // stop recording mode
-void CameraService::Client::stopRecording() {
-    LOG1("stopRecording (pid %d)", getCallingPid());
-    Mutex::Autolock lock(mLock);
-    if (checkPidAndHardware() != NO_ERROR) return;
+void CameraService::Client::stopRecording()
+{
+    LOGV("stopRecording (pid %d)", getCallingPid());
 
-    mCameraService->playSound(SOUND_RECORDING);
-    disableMsgType(CAMERA_MSG_VIDEO_FRAME);
-    mHardware->stopRecording();
+    // hold main lock during state transition
+    {
+        Mutex::Autolock lock(mLock);
+        if (checkPid() != NO_ERROR) return;
 
-    mPreviewBuffer.clear();
+        if (mHardware == 0) {
+            LOGE("mHardware is NULL, returning.");
+            return;
+        }
+
+        mHardware->disableMsgType(CAMERA_MSG_VIDEO_FRAME);
+        mHardware->stopRecording();
+        LOGV("stopRecording(), hardware stopped OK");
+
+        if (mMediaPlayerBeep.get() != NULL) {
+            mMediaPlayerBeep->seekTo(0);
+            mMediaPlayerBeep->start();
+        }
+
+    }
+
+    // hold preview buffer lock
+    {
+        Mutex::Autolock lock(mPreviewLock);
+        mPreviewBuffer.clear();
+    }
 }
 
 // release a recording frame
-void CameraService::Client::releaseRecordingFrame(const sp<IMemory>& mem) {
+void CameraService::Client::releaseRecordingFrame(const sp<IMemory>& mem)
+{
     Mutex::Autolock lock(mLock);
-    if (checkPidAndHardware() != NO_ERROR) return;
+    if (checkPid() != NO_ERROR) return;
+
+    if (mHardware == 0) {
+        LOGE("mHardware is NULL, returning.");
+        return;
+    }
+
     mHardware->releaseRecordingFrame(mem);
 }
 
-bool CameraService::Client::previewEnabled() {
-    LOG1("previewEnabled (pid %d)", getCallingPid());
-
+bool CameraService::Client::previewEnabled()
+{
     Mutex::Autolock lock(mLock);
-    if (checkPidAndHardware() != NO_ERROR) return false;
+    if (mHardware == 0) return false;
     return mHardware->previewEnabled();
 }
 
-bool CameraService::Client::recordingEnabled() {
-    LOG1("recordingEnabled (pid %d)", getCallingPid());
-
+bool CameraService::Client::recordingEnabled()
+{
     Mutex::Autolock lock(mLock);
-    if (checkPidAndHardware() != NO_ERROR) return false;
+    if (mHardware == 0) return false;
     return mHardware->recordingEnabled();
 }
 
-status_t CameraService::Client::autoFocus() {
-    LOG1("autoFocus (pid %d)", getCallingPid());
+// Safely retrieves a strong pointer to the client during a hardware callback.
+sp<CameraService::Client> CameraService::Client::getClientFromCookie(void* user)
+{
+    sp<Client> client = 0;
+    CameraService *service = static_cast<CameraService*>(user);
+    if (service != NULL) {
+        Mutex::Autolock ourLock(service->mServiceLock);
+        if (service->mClient != 0) {
+            client = service->mClient.promote();
+            if (client == 0) {
+                LOGE("getClientFromCookie: client appears to have died");
+                service->mClient.clear();
+            }
+        } else {
+            LOGE("getClientFromCookie: got callback but client was NULL");
+        }
+    }
+    return client;
+}
+
+
+#if DEBUG_DUMP_JPEG_SNAPSHOT_TO_FILE || \
+    DEBUG_DUMP_YUV_SNAPSHOT_TO_FILE || \
+    DEBUG_DUMP_PREVIEW_FRAME_TO_FILE
+static void dump_to_file(const char *fname,
+                         uint8_t *buf, uint32_t size)
+{
+    int nw, cnt = 0;
+    uint32_t written = 0;
+
+    LOGV("opening file [%s]\n", fname);
+    int fd = open(fname, O_RDWR | O_CREAT);
+    if (fd < 0) {
+        LOGE("failed to create file [%s]: %s", fname, strerror(errno));
+        return;
+    }
+
+    LOGV("writing %d bytes to file [%s]\n", size, fname);
+    while (written < size) {
+        nw = ::write(fd,
+                     buf + written,
+                     size - written);
+        if (nw < 0) {
+            LOGE("failed to write to file [%s]: %s",
+                 fname, strerror(errno));
+            break;
+        }
+        written += nw;
+        cnt++;
+    }
+    LOGV("done writing %d bytes to file [%s] in %d passes\n",
+         size, fname, cnt);
+    ::close(fd);
+}
+#endif
+
+status_t CameraService::Client::autoFocus()
+{
+    LOGV("autoFocus (pid %d)", getCallingPid());
 
     Mutex::Autolock lock(mLock);
-    status_t result = checkPidAndHardware();
+    status_t result = checkPid();
     if (result != NO_ERROR) return result;
+
+    if (mHardware == 0) {
+        LOGE("mHardware is NULL, returning.");
+        return INVALID_OPERATION;
+    }
 
     return mHardware->autoFocus();
 }
 
-status_t CameraService::Client::cancelAutoFocus() {
-    LOG1("cancelAutoFocus (pid %d)", getCallingPid());
+status_t CameraService::Client::cancelAutoFocus()
+{
+    LOGV("cancelAutoFocus (pid %d)", getCallingPid());
 
     Mutex::Autolock lock(mLock);
-    status_t result = checkPidAndHardware();
+    status_t result = checkPid();
     if (result != NO_ERROR) return result;
+
+    if (mHardware == 0) {
+        LOGE("mHardware is NULL, returning.");
+        return INVALID_OPERATION;
+    }
 
     return mHardware->cancelAutoFocus();
 }
 
 // take a picture - image is returned in callback
-status_t CameraService::Client::takePicture() {
-    LOG1("takePicture (pid %d)", getCallingPid());
+status_t CameraService::Client::takePicture()
+{
+    LOGV("takePicture (pid %d)", getCallingPid());
 
     Mutex::Autolock lock(mLock);
-    status_t result = checkPidAndHardware();
+    status_t result = checkPid();
     if (result != NO_ERROR) return result;
 
-    enableMsgType(CAMERA_MSG_SHUTTER |
-                  CAMERA_MSG_POSTVIEW_FRAME |
-                  CAMERA_MSG_RAW_IMAGE |
-                  CAMERA_MSG_COMPRESSED_IMAGE);
+    if (mHardware == 0) {
+        LOGE("mHardware is NULL, returning.");
+        return INVALID_OPERATION;
+    }
+
+    mHardware->enableMsgType(CAMERA_MSG_SHUTTER |
+                             CAMERA_MSG_POSTVIEW_FRAME |
+                             CAMERA_MSG_RAW_IMAGE |
+                             CAMERA_MSG_COMPRESSED_IMAGE);
 
     return mHardware->takePicture();
 }
 
-// set preview/capture parameters - key/value pairs
-status_t CameraService::Client::setParameters(const String8& params) {
-    LOG1("setParameters (pid %d) (%s)", getCallingPid(), params.string());
+// snapshot taken
+void CameraService::Client::handleShutter(
+    image_rect_type *size, // The width and height of yuv picture for
+                          // registerBuffer. If this is NULL, use the picture
+                          // size from parameters.
+   bool playShutterSoundOnly
+)
+{
+    // Play shutter sound.
 
-    Mutex::Autolock lock(mLock);
-    status_t result = checkPidAndHardware();
-    if (result != NO_ERROR) return result;
+    if(playShutterSoundOnly) {
 
-    CameraParameters p(params);
-    return mHardware->setParameters(p);
-}
-
-// get preview/capture parameters - key/value pairs
-String8 CameraService::Client::getParameters() const {
-    Mutex::Autolock lock(mLock);
-    if (checkPidAndHardware() != NO_ERROR) return String8();
-
-    String8 params(mHardware->getParameters().flatten());
-    LOG1("getParameters (pid %d) (%s)", getCallingPid(), params.string());
-    return params;
-}
-
-status_t CameraService::Client::sendCommand(int32_t cmd, int32_t arg1, int32_t arg2) {
-    LOG1("sendCommand (pid %d)", getCallingPid());
-    int orientation;
-    Mutex::Autolock lock(mLock);
-    status_t result = checkPidAndHardware();
-    if (result != NO_ERROR) return result;
-
-    if (cmd == CAMERA_CMD_SET_DISPLAY_ORIENTATION) {
-        // The orientation cannot be set during preview.
-        if (mHardware->previewEnabled()) {
-            return INVALID_OPERATION;
-        }
-        // Mirror the preview if the camera is front-facing.
-        orientation = getOrientation(arg1, mCameraFacing == CAMERA_FACING_FRONT);
-        if (orientation == -1) return BAD_VALUE;
-
-        if (mOrientation != orientation) {
-            mOrientation = orientation;
-            if (mOverlayRef != 0) mOrientationChanged = true;
-        }
-        return OK;
-    }
-
-    return mHardware->sendCommand(cmd, arg1, arg2);
-}
-
-// ----------------------------------------------------------------------------
-
-void CameraService::Client::enableMsgType(int32_t msgType) {
-    android_atomic_or(msgType, &mMsgEnabled);
-    mHardware->enableMsgType(msgType);
-}
-
-void CameraService::Client::disableMsgType(int32_t msgType) {
-    android_atomic_and(~msgType, &mMsgEnabled);
-    mHardware->disableMsgType(msgType);
-}
-
-#define CHECK_MESSAGE_INTERVAL 10 // 10ms
-bool CameraService::Client::lockIfMessageWanted(int32_t msgType) {
-    int sleepCount = 0;
-    while (mMsgEnabled & msgType) {
-        if (mLock.tryLock() == NO_ERROR) {
-            if (sleepCount > 0) {
-                LOG1("lockIfMessageWanted(%d): waited for %d ms",
-                    msgType, sleepCount * CHECK_MESSAGE_INTERVAL);
+        if (mMediaPlayerClick.get() != NULL) {
+            // do not play shutter sound if stream volume is 0
+            // (typically because ringer mode is silent).
+            int index;
+            AudioSystem::getStreamVolumeIndex(AudioSystem::ENFORCED_AUDIBLE, &index);
+            if (index != 0) {
+                mMediaPlayerClick->seekTo(0);
+                mMediaPlayerClick->start();
             }
-            return true;
         }
-        if (sleepCount++ == 0) {
-            LOG1("lockIfMessageWanted(%d): enter sleep", msgType);
+        sp<ICameraClient> c = mCameraClient;
+        if (c != NULL) {
+            c->notifyCallback(CAMERA_MSG_SHUTTER, 0, 0);
         }
-        usleep(CHECK_MESSAGE_INTERVAL * 1000);
+        return ;
     }
-    LOGW("lockIfMessageWanted(%d): dropped unwanted message", msgType);
-    return false;
+
+
+    // Screen goes black after the buffer is unregistered.
+    if (mSurface != 0 && !mUseOverlay) {
+        mSurface->unregisterBuffers();
+    }
+
+    mHardware->disableMsgType(CAMERA_MSG_SHUTTER);
+
+    // It takes some time before yuvPicture callback to be called.
+    // Register the buffer for raw image here to reduce latency.
+    if (mSurface != 0 && !mUseOverlay) {
+        int w, h;
+        CameraParameters params(mHardware->getParameters());
+        if (size == NULL) {
+            params.getPictureSize(&w, &h);
+        } else {
+            w = size->width;
+            h = size->height;
+            w &= ~1;
+            h &= ~1;
+            LOGV("Snapshot image width=%d, height=%d", w, h);
+        }
+
+        // FIXME: don't use hardcoded format constants here
+        ISurface::BufferHeap buffers(w, h, w, h,
+            mPixelFormat, mOrientation, 0,
+            mHardware->getRawHeap());
+
+        mSurface->registerBuffers(buffers);
+    }
 }
 
-// ----------------------------------------------------------------------------
+// preview callback - frame buffer update
+void CameraService::Client::handlePreviewData(const sp<IMemory>& mem)
+{
+    ssize_t offset;
+    size_t size;
+    sp<IMemoryHeap> heap = mem->getMemory(&offset, &size);
 
-// Converts from a raw pointer to the client to a strong pointer during a
-// hardware callback. This requires the callbacks only happen when the client
-// is still alive.
-sp<CameraService::Client> CameraService::Client::getClientFromCookie(void* user) {
-    sp<Client> client = gCameraService->getClientById((int) user);
+#if DEBUG_HEAP_LEAKS && 0 // debugging
+    if (gWeakHeap == NULL) {
+        if (gWeakHeap != heap) {
+            LOGV("SETTING PREVIEW HEAP");
+            heap->trackMe(true, true);
+            gWeakHeap = heap;
+        }
+    }
+#endif
+#if DEBUG_DUMP_PREVIEW_FRAME_TO_FILE
+    {
+        if (debug_frame_cnt++ == DEBUG_DUMP_PREVIEW_FRAME_TO_FILE) {
+            dump_to_file("/data/preview.yuv",
+                         (uint8_t *)heap->base() + offset, size);
+        }
+    }
+#endif
 
-    // This could happen if the Client is in the process of shutting down (the
-    // last strong reference is gone, but the destructor hasn't finished
-    // stopping the hardware).
-    if (client == 0) return NULL;
-
-    // The checks below are not necessary and are for debugging only.
-    if (client->mCameraService.get() != gCameraService) {
-        LOGE("mismatch service!");
-        return NULL;
+    if (!mUseOverlay)
+    {
+        Mutex::Autolock surfaceLock(mSurfaceLock);
+        if (mSurface != NULL) {
+            mSurface->postBuffer(offset);
+        }
     }
 
-    if (client->mHardware == 0) {
-        LOGE("mHardware == 0: callback after disconnect()?");
-        return NULL;
+    // local copy of the callback flags
+    int flags = mPreviewCallbackFlag;
+
+    // is callback enabled?
+    if (!(flags & FRAME_CALLBACK_FLAG_ENABLE_MASK)) {
+        // If the enable bit is off, the copy-out and one-shot bits are ignored
+        LOGV("frame callback is diabled");
+        return;
     }
 
-    return client;
+    // hold a strong pointer to the client
+    sp<ICameraClient> c = mCameraClient;
+
+    // clear callback flags if no client or one-shot mode
+    if ((c == NULL) || (mPreviewCallbackFlag & FRAME_CALLBACK_FLAG_ONE_SHOT_MASK)) {
+        LOGV("Disable preview callback");
+        mPreviewCallbackFlag &= ~(FRAME_CALLBACK_FLAG_ONE_SHOT_MASK |
+                                FRAME_CALLBACK_FLAG_COPY_OUT_MASK |
+                                FRAME_CALLBACK_FLAG_ENABLE_MASK);
+        // TODO: Shouldn't we use this API for non-overlay hardware as well?
+        if (mUseOverlay)
+            mHardware->disableMsgType(CAMERA_MSG_PREVIEW_FRAME);
+    }
+
+    // Is the received frame copied out or not?
+    if (flags & FRAME_CALLBACK_FLAG_COPY_OUT_MASK) {
+        LOGV("frame is copied");
+        copyFrameAndPostCopiedFrame(c, heap, offset, size);
+    } else {
+        LOGV("frame is forwarded");
+        c->dataCallback(CAMERA_MSG_PREVIEW_FRAME, mem);
+    }
 }
 
-// Callback messages can be dispatched to internal handlers or pass to our
-// client's callback functions, depending on the message type.
-//
-// notifyCallback:
-//      CAMERA_MSG_SHUTTER              handleShutter
-//      (others)                        c->notifyCallback
-// dataCallback:
-//      CAMERA_MSG_PREVIEW_FRAME        handlePreviewData
-//      CAMERA_MSG_POSTVIEW_FRAME       handlePostview
-//      CAMERA_MSG_RAW_IMAGE            handleRawPicture
-//      CAMERA_MSG_COMPRESSED_IMAGE     handleCompressedPicture
-//      (others)                        c->dataCallback
-// dataCallbackTimestamp
-//      (others)                        c->dataCallbackTimestamp
-//
-// NOTE: the *Callback functions grab mLock of the client before passing
-// control to handle* functions. So the handle* functions must release the
-// lock before calling the ICameraClient's callbacks, so those callbacks can
-// invoke methods in the Client class again (For example, the preview frame
-// callback may want to releaseRecordingFrame). The handle* functions must
-// release the lock after all accesses to member variables, so it must be
-// handled very carefully.
+// picture callback - postview image ready
+void CameraService::Client::handlePostview(const sp<IMemory>& mem)
+{
+#if DEBUG_DUMP_POSTVIEW_SNAPSHOT_TO_FILE // for testing pursposes only
+    {
+        ssize_t offset;
+        size_t size;
+        sp<IMemoryHeap> heap = mem->getMemory(&offset, &size);
+        dump_to_file("/data/postview.yuv",
+                     (uint8_t *)heap->base() + offset, size);
+    }
+#endif
 
-void CameraService::Client::notifyCallback(int32_t msgType, int32_t ext1,
-        int32_t ext2, void* user) {
-    LOG2("notifyCallback(%d)", msgType);
+    sp<ICameraClient> c = mCameraClient;
+    if (c != NULL) {
+        c->dataCallback(CAMERA_MSG_POSTVIEW_FRAME, mem);
+    }
+    mHardware->disableMsgType(CAMERA_MSG_POSTVIEW_FRAME);
+}
+
+// picture callback - raw image ready
+void CameraService::Client::handleRawPicture(const sp<IMemory>& mem)
+{
+    ssize_t offset;
+    size_t size;
+    sp<IMemoryHeap> heap = mem->getMemory(&offset, &size);
+#if DEBUG_HEAP_LEAKS && 0 // debugging
+    gWeakHeap = heap; // debugging
+#endif
+
+    //LOGV("handleRawPicture(%d, %d)", offset, size);
+#if DEBUG_DUMP_YUV_SNAPSHOT_TO_FILE // for testing pursposes only
+    dump_to_file("/data/photo.yuv",
+                 (uint8_t *)heap->base() + offset, size);
+#endif
+
+    // Put the YUV version of the snapshot in the preview display.
+    if (mSurface != 0 && !mUseOverlay) {
+        mSurface->postBuffer(offset);
+    }
+
+    sp<ICameraClient> c = mCameraClient;
+    if (c != NULL) {
+        c->dataCallback(CAMERA_MSG_RAW_IMAGE, mem);
+    }
+    mHardware->disableMsgType(CAMERA_MSG_RAW_IMAGE);
+}
+
+// picture callback - compressed picture ready
+void CameraService::Client::handleCompressedPicture(const sp<IMemory>& mem)
+{
+#if DEBUG_DUMP_JPEG_SNAPSHOT_TO_FILE // for testing pursposes only
+    {
+        ssize_t offset;
+        size_t size;
+        sp<IMemoryHeap> heap = mem->getMemory(&offset, &size);
+        dump_to_file("/data/photo.jpg",
+                     (uint8_t *)heap->base() + offset, size);
+    }
+#endif
+
+    sp<ICameraClient> c = mCameraClient;
+    if (c != NULL) {
+        c->dataCallback(CAMERA_MSG_COMPRESSED_IMAGE, mem);
+    }
+    if(mHardware->msgTypeEnabled(CAMERA_MSG_COMPRESSED_IMAGE)){
+        mHardware->disableMsgType(CAMERA_MSG_COMPRESSED_IMAGE);
+    }
+}
+
+void CameraService::Client::notifyCallback(int32_t msgType, int32_t ext1, int32_t ext2, void* user)
+{
+    LOGV("notifyCallback(%d %x %x %x)", msgType,ext1,ext2,user);
 
     sp<Client> client = getClientFromCookie(user);
-    if (client == 0) return;
-    if (!client->lockIfMessageWanted(msgType)) return;
+    if (client == 0) {
+        return;
+    }
 
     switch (msgType) {
         case CAMERA_MSG_SHUTTER:
             // ext1 is the dimension of the yuv picture.
-            client->handleShutter((image_rect_type *)ext1);
+            client->handleShutter((image_rect_type *)ext1, (bool)ext2);
             break;
         default:
-            client->handleGenericNotify(msgType, ext1, ext2);
+            sp<ICameraClient> c = client->mCameraClient;
+            if (c != NULL) {
+                c->notifyCallback(msgType, ext1, ext2);
+            }
             break;
     }
+
+#if DEBUG_CLIENT_REFERENCES
+    if (client->getStrongCount() == 1) {
+        LOGE("++++++++++++++++ (NOTIFY CALLBACK) THIS WILL CAUSE A LOCKUP!");
+        client->printRefs();
+    }
+#endif
 }
 
-void CameraService::Client::dataCallback(int32_t msgType,
-        const sp<IMemory>& dataPtr, void* user) {
-    LOG2("dataCallback(%d)", msgType);
+void CameraService::Client::dataCallback(int32_t msgType, const sp<IMemory>& dataPtr, void* user)
+{
+    LOGV("dataCallback(%d,%x)", msgType,user);
 
     sp<Client> client = getClientFromCookie(user);
-    if (client == 0) return;
-    if (!client->lockIfMessageWanted(msgType)) return;
+    if (client == 0) {
+        return;
+    }
 
-    if (dataPtr == 0) {
+    sp<ICameraClient> c = client->mCameraClient;
+    if (dataPtr == NULL) {
         LOGE("Null data returned in data callback");
-        client->handleGenericNotify(CAMERA_MSG_ERROR, UNKNOWN_ERROR, 0);
+        if (c != NULL) {
+            c->notifyCallback(CAMERA_MSG_ERROR, UNKNOWN_ERROR, 0);
+            c->dataCallback(msgType, NULL);
+        }
         return;
     }
 
@@ -970,255 +1197,183 @@ void CameraService::Client::dataCallback(int32_t msgType,
             client->handleCompressedPicture(dataPtr);
             break;
         default:
-            client->handleGenericData(msgType, dataPtr);
+            if (c != NULL) {
+                c->dataCallback(msgType, dataPtr);
+            }
             break;
     }
+
+#if DEBUG_CLIENT_REFERENCES
+    if (client->getStrongCount() == 1) {
+        LOGE("++++++++++++++++ (DATA CALLBACK) THIS WILL CAUSE A LOCKUP!");
+        client->printRefs();
+    }
+#endif
 }
 
-void CameraService::Client::dataCallbackTimestamp(nsecs_t timestamp,
-        int32_t msgType, const sp<IMemory>& dataPtr, void* user) {
-    LOG2("dataCallbackTimestamp(%d)", msgType);
+void CameraService::Client::dataCallbackTimestamp(nsecs_t timestamp, int32_t msgType,
+                                                  const sp<IMemory>& dataPtr, void* user)
+{
+    LOGV("dataCallbackTimestamp(%d)", msgType);
 
     sp<Client> client = getClientFromCookie(user);
-    if (client == 0) return;
-    if (!client->lockIfMessageWanted(msgType)) return;
+    if (client == 0) {
+        return;
+    }
+    sp<ICameraClient> c = client->mCameraClient;
 
-    if (dataPtr == 0) {
+    if (dataPtr == NULL) {
         LOGE("Null data returned in data with timestamp callback");
-        client->handleGenericNotify(CAMERA_MSG_ERROR, UNKNOWN_ERROR, 0);
+        if (c != NULL) {
+            c->notifyCallback(CAMERA_MSG_ERROR, UNKNOWN_ERROR, 0);
+            c->dataCallbackTimestamp(0, msgType, NULL);
+        }
         return;
     }
 
-    client->handleGenericDataTimestamp(timestamp, msgType, dataPtr);
-}
-
-// snapshot taken callback
-// "size" is the width and height of yuv picture for registerBuffer.
-// If it is NULL, use the picture size from parameters.
-void CameraService::Client::handleShutter(image_rect_type *size) {
-    mCameraService->playSound(SOUND_SHUTTER);
-
-    // Screen goes black after the buffer is unregistered.
-    if (mSurface != 0 && !mUseOverlay) {
-        mSurface->unregisterBuffers();
-    }
-
-    sp<ICameraClient> c = mCameraClient;
-    if (c != 0) {
-        mLock.unlock();
-        c->notifyCallback(CAMERA_MSG_SHUTTER, 0, 0);
-        if (!lockIfMessageWanted(CAMERA_MSG_SHUTTER)) return;
-    }
-    disableMsgType(CAMERA_MSG_SHUTTER);
-
-    // It takes some time before yuvPicture callback to be called.
-    // Register the buffer for raw image here to reduce latency.
-    if (mSurface != 0 && !mUseOverlay) {
-        int w, h;
-        CameraParameters params(mHardware->getParameters());
-        if (size == NULL) {
-            params.getPictureSize(&w, &h);
-        } else {
-            w = size->width;
-            h = size->height;
-            w &= ~1;
-            h &= ~1;
-            LOG1("Snapshot image width=%d, height=%d", w, h);
-        }
-        // FIXME: don't use hardcoded format constants here
-        ISurface::BufferHeap buffers(w, h, w, h,
-            HAL_PIXEL_FORMAT_YCrCb_420_SP, mOrientation, 0,
-            mHardware->getRawHeap());
-
-        mSurface->registerBuffers(buffers);
-        IPCThreadState::self()->flushCommands();
-    }
-
-    mLock.unlock();
-}
-
-// preview callback - frame buffer update
-void CameraService::Client::handlePreviewData(const sp<IMemory>& mem) {
-    ssize_t offset;
-    size_t size;
-    sp<IMemoryHeap> heap = mem->getMemory(&offset, &size);
-
-    if (!mUseOverlay) {
-        if (mSurface != 0) {
-            mSurface->postBuffer(offset);
-        }
-    }
-
-    // local copy of the callback flags
-    int flags = mPreviewCallbackFlag;
-
-    // is callback enabled?
-    if (!(flags & FRAME_CALLBACK_FLAG_ENABLE_MASK)) {
-        // If the enable bit is off, the copy-out and one-shot bits are ignored
-        LOG2("frame callback is disabled");
-        mLock.unlock();
-        return;
-    }
-
-    // hold a strong pointer to the client
-    sp<ICameraClient> c = mCameraClient;
-
-    // clear callback flags if no client or one-shot mode
-    if (c == 0 || (mPreviewCallbackFlag & FRAME_CALLBACK_FLAG_ONE_SHOT_MASK)) {
-        LOG2("Disable preview callback");
-        mPreviewCallbackFlag &= ~(FRAME_CALLBACK_FLAG_ONE_SHOT_MASK |
-                                  FRAME_CALLBACK_FLAG_COPY_OUT_MASK |
-                                  FRAME_CALLBACK_FLAG_ENABLE_MASK);
-        if (mUseOverlay) {
-            disableMsgType(CAMERA_MSG_PREVIEW_FRAME);
-        }
-    }
-
-    if (c != 0) {
-        // Is the received frame copied out or not?
-        if (flags & FRAME_CALLBACK_FLAG_COPY_OUT_MASK) {
-            LOG2("frame is copied");
-            copyFrameAndPostCopiedFrame(c, heap, offset, size);
-        } else {
-            LOG2("frame is forwarded");
-            mLock.unlock();
-            c->dataCallback(CAMERA_MSG_PREVIEW_FRAME, mem);
-        }
-    } else {
-        mLock.unlock();
-    }
-}
-
-// picture callback - postview image ready
-void CameraService::Client::handlePostview(const sp<IMemory>& mem) {
-    disableMsgType(CAMERA_MSG_POSTVIEW_FRAME);
-
-    sp<ICameraClient> c = mCameraClient;
-    mLock.unlock();
-    if (c != 0) {
-        c->dataCallback(CAMERA_MSG_POSTVIEW_FRAME, mem);
-    }
-}
-
-// picture callback - raw image ready
-void CameraService::Client::handleRawPicture(const sp<IMemory>& mem) {
-    disableMsgType(CAMERA_MSG_RAW_IMAGE);
-
-    ssize_t offset;
-    size_t size;
-    sp<IMemoryHeap> heap = mem->getMemory(&offset, &size);
-
-    // Put the YUV version of the snapshot in the preview display.
-    if (mSurface != 0 && !mUseOverlay) {
-        mSurface->postBuffer(offset);
-    }
-
-    sp<ICameraClient> c = mCameraClient;
-    mLock.unlock();
-    if (c != 0) {
-        c->dataCallback(CAMERA_MSG_RAW_IMAGE, mem);
-    }
-}
-
-// picture callback - compressed picture ready
-void CameraService::Client::handleCompressedPicture(const sp<IMemory>& mem) {
-    disableMsgType(CAMERA_MSG_COMPRESSED_IMAGE);
-
-    sp<ICameraClient> c = mCameraClient;
-    mLock.unlock();
-    if (c != 0) {
-        c->dataCallback(CAMERA_MSG_COMPRESSED_IMAGE, mem);
-    }
-}
-
-
-void CameraService::Client::handleGenericNotify(int32_t msgType,
-    int32_t ext1, int32_t ext2) {
-    sp<ICameraClient> c = mCameraClient;
-    mLock.unlock();
-    if (c != 0) {
-        c->notifyCallback(msgType, ext1, ext2);
-    }
-}
-
-void CameraService::Client::handleGenericData(int32_t msgType,
-    const sp<IMemory>& dataPtr) {
-    sp<ICameraClient> c = mCameraClient;
-    mLock.unlock();
-    if (c != 0) {
-        c->dataCallback(msgType, dataPtr);
-    }
-}
-
-void CameraService::Client::handleGenericDataTimestamp(nsecs_t timestamp,
-    int32_t msgType, const sp<IMemory>& dataPtr) {
-    sp<ICameraClient> c = mCameraClient;
-    mLock.unlock();
-    if (c != 0) {
+    if (c != NULL) {
         c->dataCallbackTimestamp(timestamp, msgType, dataPtr);
     }
+
+#if DEBUG_CLIENT_REFERENCES
+    if (client->getStrongCount() == 1) {
+        LOGE("++++++++++++++++ (DATA CALLBACK TIMESTAMP) THIS WILL CAUSE A LOCKUP!");
+        client->printRefs();
+    }
+#endif
 }
 
-void CameraService::Client::copyFrameAndPostCopiedFrame(
-        const sp<ICameraClient>& client, const sp<IMemoryHeap>& heap,
-        size_t offset, size_t size) {
-    LOG2("copyFrameAndPostCopiedFrame");
+// set preview/capture parameters - key/value pairs
+status_t CameraService::Client::setParameters(const String8& params)
+{
+    LOGV("setParameters(%s)", params.string());
+
+    Mutex::Autolock lock(mLock);
+    status_t result = checkPid();
+    if (result != NO_ERROR) return result;
+
+    if (mHardware == 0) {
+        LOGE("mHardware is NULL, returning.");
+        return INVALID_OPERATION;
+    }
+
+    CameraParameters p(params);
+    if(mUseOverlay) {
+        const char *str = p.get("strtextures");
+        if( (str != NULL) &&
+             (!strncmp(str, "on", 2) || !strncmp(str, "ON", 2))){
+            LOGI("strtextures is ON");
+            /* destroy any overlay created */
+            if( mOverlay != NULL) {
+                LOGI("Destroying Overlay");
+                mOverlay->destroy();
+            }
+            mOverlayRef = 0;
+
+            /* register preview buffers if mSurface is valid
+             * This check will make sure whether setPreviewDisplay has been
+             * executed or not */
+            if(mSurface != NULL) {
+                registerPreviewBuffers();
+            }
+
+            /* reset the mUseoverlay flag */
+            LOGI("Resetting mUseOverlay to false");
+            mUseOverlay = false;
+        }
+    }
+    return mHardware->setParameters(p);
+}
+
+// get preview/capture parameters - key/value pairs
+String8 CameraService::Client::getParameters() const
+{
+    Mutex::Autolock lock(mLock);
+
+    if (mHardware == 0) {
+        LOGE("mHardware is NULL, returning.");
+        return String8();
+    }
+
+    String8 params(mHardware->getParameters().flatten());
+    LOGV("getParameters(%s)", params.string());
+    return params;
+}
+
+status_t CameraService::Client::sendCommand(int32_t cmd, int32_t arg1, int32_t arg2)
+{
+    LOGV("sendCommand (pid %d)", getCallingPid());
+    Mutex::Autolock lock(mLock);
+    status_t result = checkPid();
+    if (result != NO_ERROR) return result;
+
+    if (cmd == CAMERA_CMD_SET_DISPLAY_ORIENTATION) {
+        // The orientation cannot be set during preview.
+        if (mHardware->previewEnabled()) {
+            return INVALID_OPERATION;
+        }
+        switch (arg1) {
+            case 0:
+                mOrientation = ISurface::BufferHeap::ROT_0;
+                break;
+            case 90:
+                mOrientation = ISurface::BufferHeap::ROT_90;
+                break;
+            case 180:
+                mOrientation = ISurface::BufferHeap::ROT_180;
+                break;
+            case 270:
+                mOrientation = ISurface::BufferHeap::ROT_270;
+                break;
+            default:
+                return BAD_VALUE;
+        }
+        return OK;
+    }
+
+    if (mHardware == 0) {
+        LOGE("mHardware is NULL, returning.");
+        return INVALID_OPERATION;
+    }
+
+    return mHardware->sendCommand(cmd, arg1, arg2);
+}
+
+void CameraService::Client::copyFrameAndPostCopiedFrame(const sp<ICameraClient>& client,
+        const sp<IMemoryHeap>& heap, size_t offset, size_t size)
+{
+    LOGV("copyFrameAndPostCopiedFrame");
     // It is necessary to copy out of pmem before sending this to
     // the callback. For efficiency, reuse the same MemoryHeapBase
     // provided it's big enough. Don't allocate the memory or
     // perform the copy if there's no callback.
+
     // hold the preview lock while we grab a reference to the preview buffer
     sp<MemoryHeapBase> previewBuffer;
-
-    if (mPreviewBuffer == 0) {
-        mPreviewBuffer = new MemoryHeapBase(size, 0, NULL);
-    } else if (size > mPreviewBuffer->virtualSize()) {
-        mPreviewBuffer.clear();
-        mPreviewBuffer = new MemoryHeapBase(size, 0, NULL);
+    {
+        Mutex::Autolock lock(mPreviewLock);
+        if (mPreviewBuffer == 0) {
+            mPreviewBuffer = new MemoryHeapBase(size, 0, NULL);
+        } else if (size > mPreviewBuffer->virtualSize()) {
+            mPreviewBuffer.clear();
+            mPreviewBuffer = new MemoryHeapBase(size, 0, NULL);
+        }
+        if (mPreviewBuffer == 0) {
+            LOGE("failed to allocate space for preview buffer");
+            return;
+        }
+        previewBuffer = mPreviewBuffer;
     }
-    if (mPreviewBuffer == 0) {
-        LOGE("failed to allocate space for preview buffer");
-        mLock.unlock();
-        return;
-    }
-    previewBuffer = mPreviewBuffer;
-
-    memcpy(previewBuffer->base(), (uint8_t *)heap->base() + offset, size);
+    memcpy(previewBuffer->base(),
+           (uint8_t *)heap->base() + offset, size);
 
     sp<MemoryBase> frame = new MemoryBase(previewBuffer, 0, size);
     if (frame == 0) {
         LOGE("failed to allocate space for frame callback");
-        mLock.unlock();
         return;
     }
-
-    mLock.unlock();
     client->dataCallback(CAMERA_MSG_PREVIEW_FRAME, frame);
 }
-
-int CameraService::Client::getOrientation(int degrees, bool mirror) {
-    if (!mirror) {
-        if (degrees == 0) return 0;
-        else if (degrees == 90) return HAL_TRANSFORM_ROT_90;
-        else if (degrees == 180) return HAL_TRANSFORM_ROT_180;
-        else if (degrees == 270) return HAL_TRANSFORM_ROT_270;
-    } else {  // Do mirror (horizontal flip)
-        if (degrees == 0) {           // FLIP_H and ROT_0
-            return HAL_TRANSFORM_FLIP_H;
-        } else if (degrees == 90) {   // FLIP_H and ROT_90
-            return HAL_TRANSFORM_FLIP_H | HAL_TRANSFORM_ROT_90;
-        } else if (degrees == 180) {  // FLIP_H and ROT_180
-            return HAL_TRANSFORM_FLIP_V;
-        } else if (degrees == 270) {  // FLIP_H and ROT_270
-            return HAL_TRANSFORM_FLIP_V | HAL_TRANSFORM_ROT_90;
-        }
-    }
-    LOGE("Invalid setDisplayOrientation degrees=%d", degrees);
-    return -1;
-}
-
-
-// ----------------------------------------------------------------------------
 
 static const int kDumpLockRetries = 50;
 static const int kDumpLockSleep = 60000;
@@ -1236,7 +1391,8 @@ static bool tryLock(Mutex& mutex)
     return locked;
 }
 
-status_t CameraService::dump(int fd, const Vector<String16>& args) {
+status_t CameraService::dump(int fd, const Vector<String16>& args)
+{
     static const char* kDeadlockedString = "CameraService may be deadlocked\n";
 
     const size_t SIZE = 256;
@@ -1246,7 +1402,7 @@ status_t CameraService::dump(int fd, const Vector<String16>& args) {
         snprintf(buffer, SIZE, "Permission Denial: "
                 "can't dump CameraService from pid=%d, uid=%d\n",
                 getCallingPid(),
-                getCallingUid());
+                IPCThreadState::self()->getCallingUid());
         result.append(buffer);
         write(fd, result.string(), result.size());
     } else {
@@ -1257,39 +1413,89 @@ status_t CameraService::dump(int fd, const Vector<String16>& args) {
             write(fd, result.string(), result.size());
         }
 
-        bool hasClient = false;
-        for (int i = 0; i < mNumberOfCameras; i++) {
-            sp<Client> client = mClient[i].promote();
-            if (client == 0) continue;
-            hasClient = true;
-            sprintf(buffer, "Client[%d] (%p) PID: %d\n",
-                    i,
-                    client->getCameraClient()->asBinder().get(),
-                    client->mClientPid);
+        if (mClient != 0) {
+            sp<Client> currentClient = mClient.promote();
+            sprintf(buffer, "Client (%p) PID: %d\n",
+                    currentClient->getCameraClient()->asBinder().get(),
+                    currentClient->mClientPid);
             result.append(buffer);
             write(fd, result.string(), result.size());
-            client->mHardware->dump(fd, args);
-        }
-        if (!hasClient) {
+            currentClient->mHardware->dump(fd, args);
+        } else {
             result.append("No camera client yet.\n");
             write(fd, result.string(), result.size());
         }
 
         if (locked) mServiceLock.unlock();
-
-        // change logging level
-        int n = args.size();
-        for (int i = 0; i + 1 < n; i++) {
-            if (args[i] == String16("-v")) {
-                String8 levelStr(args[i+1]);
-                int level = atoi(levelStr.string());
-                sprintf(buffer, "Set Log Level to %d", level);
-                result.append(buffer);
-                setLogLevel(level);
-            }
-        }
     }
     return NO_ERROR;
+}
+
+
+status_t CameraService::onTransact(
+    uint32_t code, const Parcel& data, Parcel* reply, uint32_t flags)
+{
+    // permission checks...
+    switch (code) {
+        case BnCameraService::CONNECT:
+            IPCThreadState* ipc = IPCThreadState::self();
+            const int pid = ipc->getCallingPid();
+            const int self_pid = getpid();
+            if (pid != self_pid) {
+                // we're called from a different process, do the real check
+                if (!checkCallingPermission(
+                        String16("android.permission.CAMERA")))
+                {
+                    const int uid = ipc->getCallingUid();
+                    LOGE("Permission Denial: "
+                            "can't use the camera pid=%d, uid=%d", pid, uid);
+                    return PERMISSION_DENIED;
+                }
+            }
+            break;
+    }
+
+    status_t err = BnCameraService::onTransact(code, data, reply, flags);
+
+#if DEBUG_HEAP_LEAKS
+    LOGV("+++ onTransact err %d code %d", err, code);
+
+    if (err == UNKNOWN_TRANSACTION || err == PERMISSION_DENIED) {
+        // the 'service' command interrogates this binder for its name, and then supplies it
+        // even for the debugging commands.  that means we need to check for it here, using
+        // ISurfaceComposer (since we delegated the INTERFACE_TRANSACTION handling to
+        // BnSurfaceComposer before falling through to this code).
+
+        LOGV("+++ onTransact code %d", code);
+
+        CHECK_INTERFACE(ICameraService, data, reply);
+
+        switch(code) {
+        case 1000:
+        {
+            if (gWeakHeap != 0) {
+                sp<IMemoryHeap> h = gWeakHeap.promote();
+                IMemoryHeap *p = gWeakHeap.unsafe_get();
+                LOGV("CHECKING WEAK REFERENCE %p (%p)", h.get(), p);
+                if (h != 0)
+                    h->printRefs();
+                bool attempt_to_delete = data.readInt32() == 1;
+                if (attempt_to_delete) {
+                    // NOT SAFE!
+                    LOGV("DELETING WEAK REFERENCE %p (%p)", h.get(), p);
+                    if (p) delete p;
+                }
+                return NO_ERROR;
+            }
+        }
+        break;
+        default:
+            break;
+        }
+    }
+#endif // DEBUG_HEAP_LEAKS
+
+    return err;
 }
 
 }; // namespace android

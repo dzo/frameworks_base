@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//#define LOG_NDEBUG 0
+#define LOG_NDEBUG 0
 #define LOG_TAG "OMXMaster"
 #include <utils/Log.h>
 
@@ -77,6 +77,7 @@ void OMXMaster::addPlugin(OMXPluginBase *plugin) {
     while ((err = plugin->enumerateComponents(
                     name, sizeof(name), index++)) == OMX_ErrorNone) {
         String8 name8(name);
+	LOGI("add Plugin ",name8.string());
 
         if (mPluginByComponentName.indexOfKey(name8) >= 0) {
             LOGE("A component of name '%s' already exists, ignoring this one.",
@@ -87,7 +88,7 @@ void OMXMaster::addPlugin(OMXPluginBase *plugin) {
 
         mPluginByComponentName.add(name8, plugin);
     }
-    CHECK_EQ(err, OMX_ErrorNoMore);
+//    CHECK_EQ(err, OMX_ErrorNoMore);
 }
 
 void OMXMaster::clearPlugins() {

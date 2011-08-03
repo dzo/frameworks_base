@@ -1,6 +1,8 @@
 /*
 **
 ** Copyright (C) 2008, The Android Open Source Project
+** Copyright (C) 2008 HTC Inc.
+** Copyright (C) 2010, Code Aurora Forum. All rights reserved.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -18,188 +20,219 @@
 #ifndef ANDROID_SERVERS_CAMERA_CAMERASERVICE_H
 #define ANDROID_SERVERS_CAMERA_CAMERASERVICE_H
 
-#include <binder/BinderService.h>
-
 #include <camera/ICameraService.h>
 #include <camera/CameraHardwareInterface.h>
-
-/* This needs to be increased if we can have more cameras */
-#define MAX_CAMERAS 2
+#include <camera/Camera.h>
 
 namespace android {
 
 class MemoryHeapBase;
 class MediaPlayer;
 
-class CameraService :
-    public BinderService<CameraService>,
-    public BnCameraService
+// ----------------------------------------------------------------------------
+
+#define LIKELY( exp )       (__builtin_expect( (exp) != 0, true  ))
+#define UNLIKELY( exp )     (__builtin_expect( (exp) != 0, false ))
+
+// When enabled, this feature allows you to send an event to the CameraService
+// so that you can cause all references to the heap object gWeakHeap, defined
+// below, to be printed. You will also need to set DEBUG_REFS=1 and
+// DEBUG_REFS_ENABLED_BY_DEFAULT=0 in libutils/RefBase.cpp. You just have to
+// set gWeakHeap to the appropriate heap you want to track.
+
+#define DEBUG_HEAP_LEAKS 0
+
+// ----------------------------------------------------------------------------
+
+class CameraService : public BnCameraService
 {
     class Client;
-    friend class BinderService<CameraService>;
+
 public:
-    static char const* getServiceName() { return "media.camera"; }
+    static void instantiate();
 
-                        CameraService();
-    virtual             ~CameraService();
-
+    // ICameraService interface
     virtual int32_t     getNumberOfCameras();
     virtual status_t    getCameraInfo(int cameraId,
                                       struct CameraInfo* cameraInfo);
     virtual sp<ICamera> connect(const sp<ICameraClient>& cameraClient, int cameraId);
-    virtual void        removeClient(const sp<ICameraClient>& cameraClient);
-    virtual sp<Client>  getClientById(int cameraId);
 
-    virtual status_t    dump(int fd, const Vector<String16>& args);
-    virtual status_t    onTransact(uint32_t code, const Parcel& data,
-                                   Parcel* reply, uint32_t flags);
+//    virtual sp<ICamera>     connect(const sp<ICameraClient>& cameraClient);
 
-    enum sound_kind {
-        SOUND_SHUTTER = 0,
-        SOUND_RECORDING = 1,
-        NUM_SOUNDS
-    };
+    virtual status_t        dump(int fd, const Vector<String16>& args);
 
-    void                loadSound();
-    void                playSound(sound_kind kind);
-    void                releaseSound();
+            void            removeClient(const sp<ICameraClient>& cameraClient);
+
+    virtual status_t onTransact(
+        uint32_t code, const Parcel& data, Parcel* reply, uint32_t flags);
 
 private:
-    Mutex               mServiceLock;
-    wp<Client>          mClient[MAX_CAMERAS];  // protected by mServiceLock
-    int                 mNumberOfCameras;
 
-    // atomics to record whether the hardware is allocated to some client.
-    volatile int32_t    mBusy[MAX_CAMERAS];
-    void                setCameraBusy(int cameraId);
-    void                setCameraFree(int cameraId);
+// ----------------------------------------------------------------------------
 
-    // sounds
-    Mutex               mSoundLock;
-    sp<MediaPlayer>     mSoundPlayer[NUM_SOUNDS];
-    int                 mSoundRef;  // reference count (release all MediaPlayer when 0)
+    class Client : public BnCamera {
 
-    class Client : public BnCamera
-    {
     public:
-        // ICamera interface (see ICamera for details)
         virtual void            disconnect();
+
+        // connect new client with existing camera remote
         virtual status_t        connect(const sp<ICameraClient>& client);
+
+        // prevent other processes from using this ICamera interface
         virtual status_t        lock();
+
+        // allow other processes to use this ICamera interface
         virtual status_t        unlock();
+
+        // pass the buffered ISurface to the camera service
         virtual status_t        setPreviewDisplay(const sp<ISurface>& surface);
-        virtual void            setPreviewCallbackFlag(int flag);
+
+        // set the preview callback flag to affect how the received frames from
+        // preview are handled.
+        virtual void            setPreviewCallbackFlag(int callback_flag);
+
+        // get the recording buffers information from HAL Layer.
+        virtual status_t        getBufferInfo(sp<IMemory>& Frame, size_t *alignedSize);
+
+        // start preview mode, must call setPreviewDisplay first
         virtual status_t        startPreview();
+
+        // stop preview mode
         virtual void            stopPreview();
+
+        // get preview state
         virtual bool            previewEnabled();
+
+        // start recording mode
         virtual status_t        startRecording();
+
+        // stop recording mode
         virtual void            stopRecording();
+
+        // get recording state
         virtual bool            recordingEnabled();
+
+        // release a recording frame
         virtual void            releaseRecordingFrame(const sp<IMemory>& mem);
+
+        // auto focus
         virtual status_t        autoFocus();
+
+        // cancel auto focus
         virtual status_t        cancelAutoFocus();
+
+        // take a picture - returns an IMemory (ref-counted mmap)
         virtual status_t        takePicture();
+
+        // set preview/capture parameters - key/value pairs
         virtual status_t        setParameters(const String8& params);
+
+        // get preview/capture parameters - key/value pairs
         virtual String8         getParameters() const;
+
+        // send command to camera driver
         virtual status_t        sendCommand(int32_t cmd, int32_t arg1, int32_t arg2);
+
+        // our client...
+        const sp<ICameraClient>&    getCameraClient() const { return mCameraClient; }
+
     private:
         friend class CameraService;
                                 Client(const sp<CameraService>& cameraService,
-                                       const sp<ICameraClient>& cameraClient,
-                                       const sp<CameraHardwareInterface>& hardware,
-                                       int cameraId,
-                                       int cameraFacing,
-                                       int clientPid);
-                                ~Client();
+                                        const sp<ICameraClient>& cameraClient,
+                                        pid_t clientPid);
+                                Client();
+        virtual                 ~Client();
 
-        // return our camera client
-        const sp<ICameraClient>&    getCameraClient() { return mCameraClient; }
+                    status_t    checkPid();
 
-        // check whether the calling process matches mClientPid.
-        status_t                checkPid() const;
-        status_t                checkPidAndHardware() const;  // also check mHardware != 0
+        static      void        notifyCallback(int32_t msgType, int32_t ext1, int32_t ext2, void* user);
+        static      void        dataCallback(int32_t msgType, const sp<IMemory>& dataPtr, void* user);
+        static      void        dataCallbackTimestamp(nsecs_t timestamp, int32_t msgType,
+                                                      const sp<IMemory>& dataPtr, void* user);
 
-        // these are internal functions used to set up preview buffers
-        status_t                registerPreviewBuffers();
-        status_t                setOverlay();
+        static      sp<Client>  getClientFromCookie(void* user);
+
+                    void        handlePreviewData(const sp<IMemory>&);
+                    void        handleShutter(image_rect_type *image,  bool playShutterSoundOnly);
+                    void        handlePostview(const sp<IMemory>&);
+                    void        handleRawPicture(const sp<IMemory>&);
+                    void        handleCompressedPicture(const sp<IMemory>&);
+
+                    void        copyFrameAndPostCopiedFrame(const sp<ICameraClient>& client,
+                                    const sp<IMemoryHeap>& heap, size_t offset, size_t size);
 
         // camera operation mode
         enum camera_mode {
             CAMERA_PREVIEW_MODE   = 0,  // frame automatically released
             CAMERA_RECORDING_MODE = 1,  // frame has to be explicitly released by releaseRecordingFrame()
         };
-        // these are internal functions used for preview/recording
         status_t                startCameraMode(camera_mode mode);
         status_t                startPreviewMode();
         status_t                startRecordingMode();
-
-        // these are static callback functions
-        static void             notifyCallback(int32_t msgType, int32_t ext1, int32_t ext2, void* user);
-        static void             dataCallback(int32_t msgType, const sp<IMemory>& dataPtr, void* user);
-        static void             dataCallbackTimestamp(nsecs_t timestamp, int32_t msgType, const sp<IMemory>& dataPtr, void* user);
-        // convert client from cookie
-        static sp<Client>       getClientFromCookie(void* user);
-        // handlers for messages
-        void                    handleShutter(image_rect_type *size);
-        void                    handlePreviewData(const sp<IMemory>& mem);
-        void                    handlePostview(const sp<IMemory>& mem);
-        void                    handleRawPicture(const sp<IMemory>& mem);
-        void                    handleCompressedPicture(const sp<IMemory>& mem);
-        void                    handleGenericNotify(int32_t msgType, int32_t ext1, int32_t ext2);
-        void                    handleGenericData(int32_t msgType, const sp<IMemory>& dataPtr);
-        void                    handleGenericDataTimestamp(nsecs_t timestamp, int32_t msgType, const sp<IMemory>& dataPtr);
-
-        void                    copyFrameAndPostCopiedFrame(
-                                    const sp<ICameraClient>& client,
-                                    const sp<IMemoryHeap>& heap,
-                                    size_t offset, size_t size);
-
-        int                     getOrientation(int orientation, bool mirror);
-
-        // these are initialized in the constructor.
-        sp<CameraService>               mCameraService;  // immutable after constructor
-        sp<ICameraClient>               mCameraClient;
-        int                             mCameraId;       // immutable after constructor
-        int                             mCameraFacing;   // immutable after constructor
-        pid_t                           mClientPid;
-        sp<CameraHardwareInterface>     mHardware;       // cleared after disconnect()
-        bool                            mUseOverlay;     // immutable after constructor
-        sp<OverlayRef>                  mOverlayRef;
-        int                             mOverlayW;
-        int                             mOverlayH;
-        int                             mPreviewCallbackFlag;
-        int                             mOrientation;     // Current display orientation
-        // True if display orientation has been changed. This is only used in overlay.
-        int                             mOrientationChanged;
+        status_t                setOverlay();
+        status_t                registerPreviewBuffers();
 
         // Ensures atomicity among the public methods
-        mutable Mutex                   mLock;
-        sp<ISurface>                    mSurface;
+        mutable     Mutex                       mLock;
 
-        // If the user want us to return a copy of the preview frame (instead
-        // of the original one), we allocate mPreviewBuffer and reuse it if possible.
-        sp<MemoryHeapBase>              mPreviewBuffer;
+        // mSurfaceLock synchronizes access to mSurface between
+        // setPreviewSurface() and postPreviewFrame().  Note that among
+        // the public methods, all accesses to mSurface are
+        // syncrhonized by mLock.  However, postPreviewFrame() is called
+        // by the CameraHardwareInterface callback, and needs to
+        // access mSurface.  It cannot hold mLock, however, because
+        // stopPreview() may be holding that lock while attempting
+        // to stop preview, and stopPreview itself will block waiting
+        // for a callback from CameraHardwareInterface.  If this
+        // happens, it will cause a deadlock.
+        mutable     Mutex                       mSurfaceLock;
+        mutable     Condition                   mReady;
+                    sp<CameraService>           mCameraService;
+                    sp<ISurface>                mSurface;
+                    int                         mPreviewCallbackFlag;
+                    int                         mOrientation;
 
-        // We need to avoid the deadlock when the incoming command thread and
-        // the CameraHardwareInterface callback thread both want to grab mLock.
-        // An extra flag is used to tell the callback thread that it should stop
-        // trying to deliver the callback messages if the client is not
-        // interested in it anymore. For example, if the client is calling
-        // stopPreview(), the preview frame messages do not need to be delivered
-        // anymore.
+                    sp<MediaPlayer>             mMediaPlayerClick;
+                    sp<MediaPlayer>             mMediaPlayerBeep;
 
-        // This function takes the same parameter as the enableMsgType() and
-        // disableMsgType() functions in CameraHardwareInterface.
-        void                    enableMsgType(int32_t msgType);
-        void                    disableMsgType(int32_t msgType);
-        volatile int32_t        mMsgEnabled;
+                    // these are immutable once the object is created,
+                    // they don't need to be protected by a lock
+                    sp<ICameraClient>           mCameraClient;
+                    sp<CameraHardwareInterface> mHardware;
+                    pid_t                       mClientPid;
+                    bool                        mUseOverlay;
 
-        // This function keeps trying to grab mLock, or give up if the message
-        // is found to be disabled. It returns true if mLock is grabbed.
-        bool                    lockIfMessageWanted(int32_t msgType);
+                    sp<OverlayRef>              mOverlayRef;
+                    sp<Overlay>                 mOverlay;
+                    int                         mOverlayW;
+                    int                         mOverlayH;
+                    int                         mPixelFormat;
+
+        mutable     Mutex                       mPreviewLock;
+                    sp<MemoryHeapBase>          mPreviewBuffer;
     };
+
+// ----------------------------------------------------------------------------
+
+                            CameraService();
+    virtual                 ~CameraService();
+
+    // We use a count for number of clients (shoule only be 0 or 1).
+    volatile    int32_t                     mUsers;
+    virtual     void                        incUsers();
+    virtual     void                        decUsers();
+
+    mutable     Mutex                       mServiceLock;
+                wp<Client>                  mClient;
+
+#if DEBUG_HEAP_LEAKS
+                wp<IMemoryHeap>             gWeakHeap;
+#endif
 };
 
-} // namespace android
+// ----------------------------------------------------------------------------
+
+}; // namespace android
 
 #endif

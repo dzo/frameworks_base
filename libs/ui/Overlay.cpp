@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (c) 2009, Code Aurora Forum. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -87,6 +88,12 @@ int32_t Overlay::getBufferCount() const
 {
     if (mStatus != NO_ERROR) return mStatus;
     return mOverlayData->getBufferCount(mOverlayData);
+}
+
+status_t Overlay::setFd(int fd)
+{
+    if (mStatus != NO_ERROR) return mStatus;
+    return mOverlayData->setFd(mOverlayData, fd);
 }
 
 void* Overlay::getBufferAddress(overlay_buffer_t buffer)

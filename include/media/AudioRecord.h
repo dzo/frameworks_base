@@ -142,9 +142,9 @@ public:
      */
 
      enum record_flags {
-         RECORD_AGC_ENABLE = AudioSystem::AGC_ENABLE,
-         RECORD_NS_ENABLE  = AudioSystem::NS_ENABLE,
-         RECORD_IIR_ENABLE = AudioSystem::TX_IIR_ENABLE
+         RECORD_AGC_ENABLE = 1,
+         RECORD_NS_ENABLE  = 2,
+         RECORD_IIR_ENABLE = 4
      };
 
                         AudioRecord(int inputSource,
@@ -361,7 +361,7 @@ private:
     uint32_t                mFrameCount;
 
     audio_track_cblk_t*     mCblk;
-    uint8_t                 mFormat;
+    int32_t                 mFormat;
     uint8_t                 mChannelCount;
     uint8_t                 mInputSource;
     uint8_t                 mReserved;
@@ -381,6 +381,7 @@ private:
     uint32_t                mFlags;
     uint32_t                mChannels;
     audio_io_handle_t       mInput;
+    bool                    mFirstread;
     int                     mSessionId;
 };
 

@@ -1,6 +1,8 @@
 /*
 **
 ** Copyright (C) 2008, The Android Open Source Project
+** Copyright (C) 2008 HTC Inc.
+** Copyright (C) 2010, Code Aurora Forum. All rights reserved.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -110,6 +112,8 @@ status_t Camera::getCameraInfo(int cameraId,
                                struct CameraInfo* cameraInfo) {
     const sp<ICameraService>& cs = getCameraService();
     if (cs == 0) return UNKNOWN_ERROR;
+    cameraInfo->facing=0;
+    cameraInfo->orientation=270;
     return cs->getCameraInfo(cameraId, cameraInfo);
 }
 
@@ -128,6 +132,10 @@ sp<Camera> Camera::connect(int cameraId)
         c.clear();
     }
     return c;
+}
+
+extern "C" sp<Camera> _ZN7android6Camera7connectEv () {
+    return Camera::connect(0);
 }
 
 void Camera::disconnect()
@@ -192,6 +200,15 @@ status_t Camera::setPreviewDisplay(const sp<ISurface>& surface)
     return c->setPreviewDisplay(surface);
 }
 
+#ifdef USE_GETBUFFERINFO
+status_t Camera::getBufferInfo(sp<IMemory>& Frame, size_t *alignedSize)
+{
+    LOGV("getBufferInfo");
+    sp <ICamera> c = mCamera;
+    if (c == 0) return NO_INIT;
+    return c->getBufferInfo(Frame, alignedSize);
+}
+#endif
 
 // start preview mode
 status_t Camera::startPreview()

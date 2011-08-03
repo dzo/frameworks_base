@@ -1,5 +1,7 @@
 /*
  * Copyright (C) 2008 The Android Open Source Project
+ * Copyright (C) 2008 HTC Inc.
+ * Copyright (C) 2010, Code Aurora Forum. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -83,18 +85,6 @@ enum {
 enum {
     CAMERA_CMD_START_SMOOTH_ZOOM     = 1,
     CAMERA_CMD_STOP_SMOOTH_ZOOM      = 2,
-    // Set the clockwise rotation of preview display (setPreviewDisplay) in
-    // degrees. This affects the preview frames and the picture displayed after
-    // snapshot. This method is useful for portrait mode applications. Note that
-    // preview display of front-facing cameras is flipped horizontally before
-    // the rotation, that is, the image is reflected along the central vertical
-    // axis of the camera sensor. So the users can see themselves as looking
-    // into a mirror.
-    //
-    // This does not affect the order of byte array of CAMERA_MSG_PREVIEW_FRAME,
-    // CAMERA_MSG_VIDEO_FRAME, CAMERA_MSG_POSTVIEW_FRAME, CAMERA_MSG_RAW_IMAGE,
-    // or CAMERA_MSG_COMPRESSED_IMAGE. This is not allowed to be set during
-    // preview.
     CAMERA_CMD_SET_DISPLAY_ORIENTATION = 3,
 };
 
@@ -103,7 +93,6 @@ enum {
     CAMERA_ERROR_UKNOWN  = 1,
     CAMERA_ERROR_SERVER_DIED = 100
 };
-
 enum {
     CAMERA_FACING_BACK = 0, /* The facing of the camera is opposite to that of the screen. */
     CAMERA_FACING_FRONT = 1 /* The facing of the camera is the same as that of the screen. */
@@ -156,6 +145,8 @@ public:
     static  status_t    getCameraInfo(int cameraId,
                                       struct CameraInfo* cameraInfo);
     static  sp<Camera>  connect(int cameraId);
+
+//    static  sp<Camera>  connect();
                         ~Camera();
             void        init();
 
@@ -169,6 +160,9 @@ public:
             // pass the buffered ISurface to the camera service
             status_t    setPreviewDisplay(const sp<Surface>& surface);
             status_t    setPreviewDisplay(const sp<ISurface>& surface);
+
+            // query the recording buffer information from HAL layer.
+            status_t    getBufferInfo(sp<IMemory>& Frame, size_t *alignedSize);
 
             // start preview mode, must call setPreviewDisplay first
             status_t    startPreview();

@@ -79,6 +79,9 @@ enum output_format {
     OUTPUT_FORMAT_AAC_ADIF = 5,
     OUTPUT_FORMAT_AAC_ADTS = 6,
 
+//    OUTPUT_FORMAT_QCP = 7, // QCP file format
+//    OUTPUT_FORMAT_THREE_GPP2 = 8, /*3GPP2*/
+
     /* Stream over a socket, limited to a single stream */
     OUTPUT_FORMAT_RTP_AVP = 7,
 
@@ -95,6 +98,9 @@ enum audio_encoder {
     AUDIO_ENCODER_AAC = 3,
     AUDIO_ENCODER_AAC_PLUS = 4,
     AUDIO_ENCODER_EAAC_PLUS = 5,
+    AUDIO_ENCODER_EVRC = 6,
+    AUDIO_ENCODER_QCELP = 7,
+
 
     AUDIO_ENCODER_LIST_END // must be the last - used to validate the audio encoder type
 };
@@ -137,13 +143,15 @@ enum media_recorder_event_type {
 };
 
 enum media_recorder_error_type {
-    MEDIA_RECORDER_ERROR_UNKNOWN                  = 1
+    MEDIA_RECORDER_ERROR_UNKNOWN                  = 1,
+    MEDIA_RECORDER_ERROR_RESOURCE                 = 2
 };
 
 // The codes are distributed as follow:
 //   0xx: Reserved
 //   8xx: General info/warning
 //
+
 enum media_recorder_info_type {
     MEDIA_RECORDER_INFO_UNKNOWN                   = 1,
     MEDIA_RECORDER_INFO_MAX_DURATION_REACHED      = 800,
@@ -152,7 +160,14 @@ enum media_recorder_info_type {
     MEDIA_RECORDER_INFO_PROGRESS_FRAME_STATUS     = 803,
     MEDIA_RECORDER_INFO_PROGRESS_TIME_STATUS      = 804,
 };
-
+/*
+enum media_recorder_info_type {
+    MEDIA_RECORDER_INFO_UNKNOWN                   = 1,
+    MEDIA_RECORDER_INFO_MAX_DURATION_REACHED      = 800,
+    MEDIA_RECORDER_INFO_MAX_FILESIZE_REACHED      = 801,
+    MEDIA_RECORDER_UNSUPPORTED_RESOLUTION         = 802
+};
+*/
 // ----------------------------------------------------------------------------
 // ref-counted object for callbacks
 class MediaRecorderListener: virtual public RefBase

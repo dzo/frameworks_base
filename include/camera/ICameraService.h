@@ -43,6 +43,7 @@ public:
                                           struct CameraInfo* cameraInfo) = 0;
     virtual sp<ICamera>     connect(const sp<ICameraClient>& cameraClient,
                                     int cameraId) = 0;
+//      virtual sp<ICamera>     connect(const sp<ICameraClient>& cameraClient) = 0;
 };
 
 // ----------------------------------------------------------------------------

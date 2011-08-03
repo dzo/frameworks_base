@@ -264,7 +264,7 @@ status_t OMXNodeInstance::useBuffer(
         return UNKNOWN_ERROR;
     }
 
-    CHECK_EQ(header->pAppPrivate, buffer_meta);
+//    CHECK_EQ(header->pAppPrivate, buffer_meta);
 
     *buffer = header;
 

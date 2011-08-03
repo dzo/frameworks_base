@@ -141,6 +141,12 @@ CameraSource::CameraSource(const sp<Camera> &camera)
     CameraParameters params(s);
     params.getPreviewSize(&width, &height);
 
+    LOGI("CameraSource %d x %d",width, height);
+    if(width==176) {
+        width=1280;
+        height=720;
+    }
+
     // Calculate glitch duraton threshold based on frame rate
     int32_t frameRate = params.getPreviewFrameRate();
     int64_t glitchDurationUs = (1000000LL / frameRate);
@@ -148,9 +154,9 @@ CameraSource::CameraSource(const sp<Camera> &camera)
         mGlitchDurationThresholdUs = glitchDurationUs;
     }
 
-    const char *colorFormatStr = params.get(CameraParameters::KEY_VIDEO_FRAME_FORMAT);
-    CHECK(colorFormatStr != NULL);
-    int32_t colorFormat = getColorFormat(colorFormatStr);
+//    const char *colorFormatStr = params.get(CameraParameters::KEY_VIDEO_FRAME_FORMAT);
+//    CHECK(colorFormatStr != NULL);
+    int32_t colorFormat = OMX_COLOR_FormatYUV420SemiPlanar; //getColorFormat(colorFormatStr);
 
     // XXX: query camera for the stride and slice height
     // when the capability becomes available.

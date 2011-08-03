@@ -124,83 +124,6 @@ static status_t MyConnect(
     return result;
 }
 
-// Apparently under our linux closing a socket descriptor from one thread
-// will not unblock a pending send/recv on that socket on another thread.
-static ssize_t MySendReceive(
-        int s, void *data, size_t size, int flags, bool sendData) {
-    ssize_t result = 0;
-
-    if (s < 0) {
-        return -1;
-    }
-    while (size > 0) {
-        fd_set rs, ws, es;
-        FD_ZERO(&rs);
-        FD_ZERO(&ws);
-        FD_ZERO(&es);
-        FD_SET(s, sendData ? &ws : &rs);
-        FD_SET(s, &es);
-
-        struct timeval tv;
-        tv.tv_sec = 0;
-        tv.tv_usec = 100000ll;
-
-        int nfds = ::select(
-                s + 1,
-                sendData ? NULL : &rs,
-                sendData ? &ws : NULL,
-                &es,
-                &tv);
-
-        if (nfds < 0) {
-            if (errno == EINTR) {
-                continue;
-            }
-
-            result = -errno;
-            break;
-        } else if (nfds == 0) {
-            // timeout
-
-            continue;
-        }
-
-        CHECK_EQ(nfds, 1);
-
-        ssize_t nbytes =
-            sendData ? send(s, data, size, flags) : recv(s, data, size, flags);
-
-        if (nbytes < 0) {
-            if (errno == EINTR) {
-                continue;
-            }
-
-            result = -errno;
-            break;
-        } else if (nbytes == 0) {
-            result = 0;
-            break;
-        }
-
-        data = (uint8_t *)data + nbytes;
-        size -= nbytes;
-
-        result = nbytes;
-        break;
-    }
-
-    return result;
-}
-
-static ssize_t MySend(int s, const void *data, size_t size, int flags) {
-    return MySendReceive(
-            s, const_cast<void *>(data), size, flags, true /* sendData */);
-}
-
-static ssize_t MyReceive(int s, void *data, size_t size, int flags) {
-    return MySendReceive(s, data, size, flags, false /* sendData */);
-}
-
 status_t HTTPStream::connect(const char *server, int port) {
     Mutex::Autolock autoLock(mLock);
 
@@ -297,12 +220,16 @@ status_t HTTPStream::send(const char *data, size_t size) {
     }
 
     while (size > 0) {
-        ssize_t n = MySend(mSocket, data, size, 0);
+        ssize_t n = ::send(mSocket, data, size, 0);
 
         if (n < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+
             disconnect();
 
-            return n;
+            return ERROR_IO;
         } else if (n == 0) {
             disconnect();
 
@@ -338,8 +265,12 @@ status_t HTTPStream::receive_line(char *line, size_t size) {
 
     for (;;) {
         char c;
-        ssize_t n = MyReceive(mSocket, &c, 1, 0);
+        ssize_t n = recv(mSocket, &c, 1, 0);
         if (n < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+
             disconnect();
 
             return ERROR_IO;
@@ -452,10 +383,14 @@ status_t HTTPStream::receive_header(int *http_status) {
 ssize_t HTTPStream::receive(void *data, size_t size) {
     size_t total = 0;
     while (total < size) {
-        ssize_t n = MyReceive(mSocket, (char *)data + total, size - total, 0);
+        ssize_t n = recv(mSocket, (char *)data + total, size - total, 0);
 
         if (n < 0) {
-            LOGE("recv failed, errno = %d (%s)", (int)n, strerror(-n));
+            if (errno == EINTR) {
+                continue;
+            }
+
+            LOGE("recv failed, errno = %d (%s)", errno, strerror(errno));
 
             disconnect();
             return (ssize_t)ERROR_IO;

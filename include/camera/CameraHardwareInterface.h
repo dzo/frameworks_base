@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2008 The Android Open Source Project
+ * Copyright (C) 2010, Code Aurora Forum. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -126,6 +127,13 @@ public:
      */
     virtual status_t    startPreview() = 0;
 
+     /**
+     * Query the recording buffer information from HAL.
+     * This is needed because the opencore expects the buffer
+     * information before starting the recording.
+     */
+    virtual status_t    getBufferInfo(sp<IMemory>& Frame, size_t *alignedSize) = 0;
+
     /**
      * Only used if overlays are used for camera preview.
      */
@@ -190,9 +198,7 @@ public:
      */
     virtual status_t    cancelPicture() = 0;
 
-    /**
-     * Set the camera parameters. This returns BAD_VALUE if any parameter is
-     * invalid or not supported. */
+    /** Set the camera parameters. */
     virtual status_t    setParameters(const CameraParameters& params) = 0;
 
     /** Return the camera parameters. */
@@ -215,16 +221,13 @@ public:
     virtual status_t dump(int fd, const Vector<String16>& args) const = 0;
 };
 
-/**
- * The functions need to be provided by the camera HAL.
- *
- * If getNumberOfCameras() returns N, the valid cameraId for getCameraInfo()
- * and openCameraHardware() is 0 to N-1.
- */
+/** factory function to instantiate a camera hardware object */
 extern "C" int HAL_getNumberOfCameras();
 extern "C" void HAL_getCameraInfo(int cameraId, struct CameraInfo* cameraInfo);
 /* HAL should return NULL if it fails to open camera hardware. */
 extern "C" sp<CameraHardwareInterface> HAL_openCameraHardware(int cameraId);
+
+extern "C" sp<CameraHardwareInterface> openCameraHardware(void);
 
 };  // namespace android
 

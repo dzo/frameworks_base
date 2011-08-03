@@ -1,14 +1,15 @@
 LOCAL_PATH:= $(call my-dir)
 
-# Set USE_CAMERA_STUB if you don't want to use the hardware camera.
-
-# force these builds to use camera stub only
-ifneq ($(filter sooner generic sim,$(TARGET_DEVICE)),)
-  USE_CAMERA_STUB:=true
-endif
-
+#
+# Set USE_CAMERA_STUB for non-emulator and non-simulator builds, if you want
+# the camera service to use the fake camera.  For emulator or simulator builds,
+# we always use the fake camera.
+#USE_CAMERA_STUB:=true
 ifeq ($(USE_CAMERA_STUB),)
-  USE_CAMERA_STUB:=false
+USE_CAMERA_STUB:=false
+ifneq ($(filter sooner generic sim,$(TARGET_DEVICE)),)
+USE_CAMERA_STUB:=true
+endif #libcamerastub
 endif
 
 ifeq ($(USE_CAMERA_STUB),true)
@@ -53,14 +54,18 @@ LOCAL_SHARED_LIBRARIES:= \
 
 LOCAL_MODULE:= libcameraservice
 
+LOCAL_CFLAGS += -DLOG_TAG=\"CameraService\"
+
 ifeq ($(TARGET_SIMULATOR),true)
 LOCAL_CFLAGS += -DSINGLE_PROCESS
 endif
 
 ifeq ($(USE_CAMERA_STUB), true)
 LOCAL_STATIC_LIBRARIES += libcamerastub
+LOCAL_CFLAGS += -include CameraHardwareStub.h
 else
 LOCAL_SHARED_LIBRARIES += libcamera 
 endif
 
 include $(BUILD_SHARED_LIBRARY)
+
