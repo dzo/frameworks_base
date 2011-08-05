@@ -3593,13 +3593,16 @@ void OMXCodec::initOutputFormat(const sp<MetaData> &inputFormat) {
                 CHECK(!"Unknown compression format.");
             }
 
-            if (!strcmp(mComponentName, "OMX.PV.avcdec")) {
+	    LOGI("OMX_PortDomainVideo %s",mComponentName);
+            if (!strcmp(mComponentName, "OMX.PV.avcdec") || !strcmp(mComponentName, "OMX.qcom.7x30.video.decoder.avc")) {
                 // This component appears to be lying to me.
                 mOutputFormat->setInt32(
                         kKeyWidth, (video_def->nFrameWidth + 15) & -16);
                 mOutputFormat->setInt32(
                         kKeyHeight, (video_def->nFrameHeight + 15) & -16);
-            } else {
+            } else 
+
+	     {
                 //Update the Stride and Slice Height
                 //Allows creation of Renderer with correct height and width
                 if( mIsEncoder ){
