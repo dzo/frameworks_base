@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+//#define LOG_NDEBUG 0
 #include <stdint.h>
 #include <math.h>
 #include <sys/types.h>
@@ -203,8 +203,14 @@ void SensorDevice::dump(String8& result, char* buffer, size_t SIZE)
     for (size_t i=0 ; i<size_t(count) ; i++) {
         snprintf(buffer, SIZE, "handle=0x%08x, active-count=%d\n",
                 list[i].handle,
-                mActivationCount.valueFor(list[i].handle).rates.size());
+                mActivationCount.valueFor(list[i].handle).rates.size());			
         result.append(buffer);
+        for (size_t j=0 ; j<mActivationCount.valueFor(list[i].handle).rates.size() ; j++) {
+            snprintf(buffer, SIZE, "     value:%d=%p,%lld\n",j,
+                mActivationCount.valueFor(list[i].handle).rates.keyAt(j),
+                mActivationCount.valueFor(list[i].handle).rates.valueAt(j));
+            result.append(buffer);
+        }
     }
 }
 
@@ -236,8 +242,14 @@ ssize_t SensorDevice::poll(sensors_event_t* buffer, size_t count) {
             long result =  mSensorDataDevice->poll(mSensorDataDevice, &oldBuffer);
             int sensorType = -1;
             int maxRange = -1;
- 
+
+            if(result < 0) {
+                LOGV("poll returns %ld",result);
+		continue;
+            }
+
             if (result == 0x7FFFFFFF) {
+		LOGV("wake");
                 continue;
             } else {
                 /* the old data_poll is supposed to return a handle,
@@ -252,7 +264,7 @@ ssize_t SensorDevice::poll(sensors_event_t* buffer, size_t count) {
             }
             if ( sensorType <= 0 ||
                  sensorType > SENSOR_TYPE_ROTATION_VECTOR) {
-                LOGV("Useless output at round %u from %d",pollsDone, oldBuffer.sensor);
+                LOGV("Useless output at round %u from %d %ld",pollsDone, oldBuffer.sensor,result);
                 count--;
                 continue;
             }
@@ -293,6 +305,8 @@ ssize_t SensorDevice::poll(sensors_event_t* buffer, size_t count) {
         return mSensorDevice->poll(mSensorDevice, buffer, count);
     }
 }
+
+static int activated[10];
 
 status_t SensorDevice::activate(void* ident, int handle, int enabled)
 {
@@ -348,14 +362,17 @@ status_t SensorDevice::activate(void* ident, int handle, int enabled)
 
     if (actuateHardware) {
         if (mOldSensorsCompatMode) {
+            Mutex::Autolock _l(mLock); // resuse this mutex to protect activated[]
             if (enabled)
                 mOldSensorsEnabled++;
             else if (mOldSensorsEnabled > 0)
                 mOldSensorsEnabled--;
-            LOGV("Activation for %d (%d)",handle,enabled);
-//            if (enabled) {
-//                mSensorControlDevice->wake(mSensorControlDevice);
-//            }
+            LOGV("Activation for %d (%d:%d) %d",handle,enabled,mOldSensorsEnabled,activated[handle]);
+            if (enabled && !activated[handle]) { // only wake if not already activated
+                activated[handle]=enabled;
+                mSensorControlDevice->wake(mSensorControlDevice);
+            }
+            activated[handle]=enabled;
             err = mSensorControlDevice->activate(mSensorControlDevice, handle, enabled);
             err = 0;
         } else {

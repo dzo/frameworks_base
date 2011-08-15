@@ -3593,13 +3593,14 @@ void OMXCodec::initOutputFormat(const sp<MetaData> &inputFormat) {
                 CHECK(!"Unknown compression format.");
             }
 
-	    LOGI("OMX_PortDomainVideo %s",mComponentName);
+	    LOGI("OMX_PortDomainVideo %s %d",mComponentName,mIsEncoder);
             if (!strcmp(mComponentName, "OMX.PV.avcdec") || !strcmp(mComponentName, "OMX.qcom.7x30.video.decoder.avc")) {
                 // This component appears to be lying to me.
                 mOutputFormat->setInt32(
                         kKeyWidth, (video_def->nFrameWidth + 15) & -16);
                 mOutputFormat->setInt32(
                         kKeyHeight, (video_def->nFrameHeight + 15) & -16);
+		LOGI("%d %d %d %d",video_def->nFrameWidth, video_def->nFrameHeight, video_def->nStride, video_def->nSliceHeight);
             } else 
 
 	     {
