@@ -306,8 +306,6 @@ ssize_t SensorDevice::poll(sensors_event_t* buffer, size_t count) {
     }
 }
 
-static int activated[10];
-
 status_t SensorDevice::activate(void* ident, int handle, int enabled)
 {
     if (!mSensorDevice && !mOldSensorsCompatMode) return NO_INIT;
@@ -340,73 +338,72 @@ status_t SensorDevice::activate(void* ident, int handle, int enabled)
 
     }
 #endif
-    Info& info( mActivationCount.editValueFor(handle) );
-    if (enabled) {
+    { // scope for lock
         Mutex::Autolock _l(mLock);
-        if (info.rates.indexOfKey(ident) < 0) {
-            info.rates.add(ident, DEFAULT_EVENTS_PERIOD);
-            actuateHardware = true;
-        } else {
-            // sensor was already activated for this ident
-        }
-    } else {
-        Mutex::Autolock _l(mLock);
-        if (info.rates.removeItem(ident) >= 0) {
-            if (info.rates.size() == 0) {
-                actuateHardware = true;
-            }
-        } else {
-            // sensor wasn't enabled for this ident
-        }
-    }
 
-    if (actuateHardware) {
-        if (mOldSensorsCompatMode) {
-            Mutex::Autolock _l(mLock); // resuse this mutex to protect activated[]
-            if (enabled)
-                mOldSensorsEnabled++;
-            else if (mOldSensorsEnabled > 0)
-                mOldSensorsEnabled--;
-            LOGV("Activation for %d (%d:%d) %d",handle,enabled,mOldSensorsEnabled,activated[handle]);
-            if (enabled && !activated[handle]) { // only wake if not already activated
-                activated[handle]=enabled;
-                mSensorControlDevice->wake(mSensorControlDevice);
-            }
-            activated[handle]=enabled;
-            err = mSensorControlDevice->activate(mSensorControlDevice, handle, enabled);
-            err = 0;
-        } else {
-            err = mSensorDevice->activate(mSensorDevice, handle, enabled);
-        }
+        Info& info( mActivationCount.editValueFor(handle) );
+   
         if (enabled) {
-            LOGE_IF(err, "Error activating sensor %d (%s)", handle, strerror(-err));
-            if (err == 0) {
-                BatteryService::getInstance().enableSensor(handle);
+            if (info.rates.indexOfKey(ident) < 0) {
+                info.rates.add(ident, DEFAULT_EVENTS_PERIOD);
+                mOldSensorsEnabled++;
+                actuateHardware = true;
+            } else {
+                // sensor was already activated for this ident
             }
         } else {
-            if (err == 0) {
-                BatteryService::getInstance().disableSensor(handle);
+            if (info.rates.removeItem(ident) >= 0) {
+                if (mOldSensorsEnabled > 0)
+                    mOldSensorsEnabled--;
+                if (info.rates.size() == 0) {
+                    actuateHardware = true;
+                }
+            } else {
+                // sensor wasn't enabled for this ident
             }
         }
-    }
 
-    if (!actuateHardware || enabled) {
-        Mutex::Autolock _l(mLock);
-        nsecs_t ns = info.rates.valueAt(0);
-        for (size_t i=1 ; i<info.rates.size() ; i++) {
-            if (info.rates.valueAt(i) < ns) {
-                nsecs_t cur = info.rates.valueAt(i);
-                if (cur < ns) {
-                    ns = cur;
+        if (actuateHardware) {
+            if (mOldSensorsCompatMode) {
+                LOGV("Activation for %d (%d:%d) %d",handle,enabled,mOldSensorsEnabled,info.rates.size());
+                if (enabled && info.rates.size() == 0) { // only wake if not already enabled
+                    mSensorControlDevice->wake(mSensorControlDevice); 
+                }
+
+                err = mSensorControlDevice->activate(mSensorControlDevice, handle, enabled);
+                err = 0;
+            } else {
+                err = mSensorDevice->activate(mSensorDevice, handle, enabled);
+            }
+            if (enabled) {
+                LOGE_IF(err, "Error activating sensor %d (%s)", handle, strerror(-err));
+                if (err == 0) {
+                    BatteryService::getInstance().enableSensor(handle);
+                }
+            } else {
+                if (err == 0) {
+                    BatteryService::getInstance().disableSensor(handle);
                 }
             }
         }
-        if (mOldSensorsCompatMode) {
-            mSensorControlDevice->set_delay(mSensorControlDevice, (ns/(1000*1000)));
-        } else {
-            mSensorDevice->setDelay(mSensorDevice, handle, ns);
+
+        if (!actuateHardware || enabled) {
+            nsecs_t ns = info.rates.valueAt(0);
+            for (size_t i=1 ; i<info.rates.size() ; i++) {
+                if (info.rates.valueAt(i) < ns) {
+                    nsecs_t cur = info.rates.valueAt(i);
+                    if (cur < ns) {
+                        ns = cur;
+                    }
+                }
+            }
+            if (mOldSensorsCompatMode) {
+                mSensorControlDevice->set_delay(mSensorControlDevice, (ns/(1000*1000)));
+            } else {
+                mSensorDevice->setDelay(mSensorDevice, handle, ns);
+            }
         }
-    }
+    } // end scope for lock
 
     return err;
 }
