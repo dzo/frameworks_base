@@ -348,6 +348,7 @@ status_t SensorDevice::activate(void* ident, int handle, int enabled)
                 info.rates.add(ident, DEFAULT_EVENTS_PERIOD);
                 mOldSensorsEnabled++;
                 actuateHardware = true;
+                BatteryService::getInstance().enableSensor(handle);
             } else {
                 // sensor was already activated for this ident
             }
@@ -355,6 +356,7 @@ status_t SensorDevice::activate(void* ident, int handle, int enabled)
             if (info.rates.removeItem(ident) >= 0) {
                 if (mOldSensorsEnabled > 0)
                     mOldSensorsEnabled--;
+                BatteryService::getInstance().disableSensor(handle);
                 if (info.rates.size() == 0) {
                     actuateHardware = true;
                 }
@@ -374,16 +376,6 @@ status_t SensorDevice::activate(void* ident, int handle, int enabled)
                 err = 0;
             } else {
                 err = mSensorDevice->activate(mSensorDevice, handle, enabled);
-            }
-            if (enabled) {
-                LOGE_IF(err, "Error activating sensor %d (%s)", handle, strerror(-err));
-                if (err == 0) {
-                    BatteryService::getInstance().enableSensor(handle);
-                }
-            } else {
-                if (err == 0) {
-                    BatteryService::getInstance().disableSensor(handle);
-                }
             }
         }
 

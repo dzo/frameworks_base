@@ -129,7 +129,7 @@ static void read_mapinfo(FILE *fp, stats_t* stats)
             isDalvikHeap = 1;
         } else if (strstr(line, "/dalvik-heap-bitmap/")) {
             isDalvikHeap = 1;    
-        } else if (strstr(line, "/data/dalvik-cache/")) {
+        } else if (strstr(line, "/data/dalvik-cache/") || strstr(line, "/cache/dalvik-cache/")) {
             isDalvikHeap = 1;
         } else if (strstr(line, "/tmp/sqlite-heap")) {
             isSqliteHeap = 1;

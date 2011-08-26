@@ -14,4 +14,4 @@ LOCAL_C_INCLUDES:= \
 
 LOCAL_MODULE:= omx_tests
 
-include $(BUILD_EXECUTABLE)
+#include $(BUILD_EXECUTABLE)

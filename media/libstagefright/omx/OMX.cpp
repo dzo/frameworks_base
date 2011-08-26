@@ -381,6 +381,8 @@ OMX_ERRORTYPE OMX::OnFillBufferDone(
     LOGV("OnFillBufferDone buffer=%p", pBuffer);
 
     omx_message msg;
+    long offset = 0;
+
     msg.type = omx_message::FILL_BUFFER_DONE;
     msg.node = node;
     msg.u.extended_buffer_data.buffer = pBuffer;
@@ -390,6 +392,27 @@ OMX_ERRORTYPE OMX::OnFillBufferDone(
     msg.u.extended_buffer_data.timestamp = pBuffer->nTimeStamp;
     msg.u.extended_buffer_data.platform_private = pBuffer->pPlatformPrivate;
     msg.u.extended_buffer_data.data_ptr = pBuffer->pBuffer;
+
+#ifdef TARGET_7X30
+    PLATFORM_PRIVATE_LIST *pPlatfromList = (PLATFORM_PRIVATE_LIST *)pBuffer->pPlatformPrivate;
+    PLATFORM_PRIVATE_ENTRY *pPlatformEntry;
+    PLATFORM_PRIVATE_PMEM_INFO *pPMEMInfo;
+
+    if(pPlatfromList) {
+      for(size_t i=0; i<pPlatfromList->nEntries; i++) {
+        if(pPlatfromList->entryList->type == PLATFORM_PRIVATE_PMEM)
+          {
+            pPlatformEntry = (PLATFORM_PRIVATE_ENTRY *)pPlatfromList->entryList;
+            pPMEMInfo = (PLATFORM_PRIVATE_PMEM_INFO *)pPlatformEntry->entry;
+            if(pPMEMInfo) {
+              offset = pPMEMInfo->offset;
+            }
+            break;
+          }
+      }
+    }
+    msg.u.extended_buffer_data.pmem_offset = offset;
+#endif
 
     findDispatcher(node)->post(msg);
 

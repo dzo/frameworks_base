@@ -240,6 +240,13 @@ struct OMXCodecObserver : public BnOMXObserver {
         }
     }
 
+    virtual void registerBuffers(const sp<IMemoryHeap> &mem) {
+        sp<OMXCodec> codec = mTarget.promote();
+        if (codec.get() != NULL) {
+            codec->registerBuffers(mem);
+        }
+    }
+
 protected:
     virtual ~OMXCodecObserver() {}
 
@@ -1428,6 +1435,7 @@ OMXCodec::OMXCodec(
       mComponentName(strdup(componentName)),
       mSource(source),
       mCodecSpecificDataIndex(0),
+      mPmemInfo(NULL),
       mState(LOADED),
       mInitialBufferSubmit(true),
       mSignalledEOS(false),
@@ -1801,6 +1809,12 @@ void OMXCodec::on_message(const omx_message &msg) {
                             "sending a buffer larger than the originally "
                             "advertised size in FILL_BUFFER_DONE!");
                 }
+                if(!mOMXLivesLocally && mPmemInfo != NULL && buffer != NULL) {
+                    OMX_U8* base = (OMX_U8*)mPmemInfo->getBase();
+                    OMX_U8* data = base + msg.u.extended_buffer_data.pmem_offset;
+                    buffer->setData(data);
+                }
+
                 buffer->set_range(
                         msg.u.extended_buffer_data.range_offset,
                         msg.u.extended_buffer_data.range_length);
@@ -1867,6 +1881,10 @@ void OMXCodec::on_message(const omx_message &msg) {
             break;
         }
     }
+}
+
+void OMXCodec::registerBuffers(const sp<IMemoryHeap> &mem) {
+    mPmemInfo = mem;
 }
 
 void OMXCodec::onEvent(OMX_EVENTTYPE event, OMX_U32 data1, OMX_U32 data2) {
