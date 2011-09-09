@@ -37,7 +37,13 @@ public class IccCardApplication {
         APPSTATE_PIN,
         APPSTATE_PUK,
         APPSTATE_SUBSCRIPTION_PERSO,
-        APPSTATE_READY;
+        APPSTATE_READY,
+        APPSTATE_ILLEGAL;
+         // Even if the app state is marked as Illegal by NAS, ICC IO
+         // operations should be permitted. Hence treating the illegal
+         // app state as card present. Network access requests will
+         // anyway be rejected and ME will be in limited service.
+
 
         boolean isPinRequired() {
             return this == APPSTATE_PIN;
@@ -52,7 +58,7 @@ public class IccCardApplication {
         }
 
         boolean isAppReady() {
-            return this == APPSTATE_READY;
+            return ((this == APPSTATE_READY) || (this == APPSTATE_ILLEGAL));
         }
 
         boolean isAppNotReady() {
@@ -132,6 +138,7 @@ public class IccCardApplication {
             case 3: newState = AppState.APPSTATE_PUK; break;
             case 4: newState = AppState.APPSTATE_SUBSCRIPTION_PERSO; break;
             case 5: newState = AppState.APPSTATE_READY; break;
+            case 6: newState = AppState.APPSTATE_ILLEGAL; break;
             default:
                 throw new RuntimeException(
                             "Unrecognized RIL_AppState: " +state);
