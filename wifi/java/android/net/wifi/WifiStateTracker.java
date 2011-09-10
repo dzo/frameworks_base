@@ -2596,6 +2596,10 @@ public class WifiStateTracker extends NetworkStateTracker {
         }
 
         private void setDhcpRenewalAlarm(long leaseDuration) {
+            //Skip renewal if we're on an infinite lease
+            if (leaseDuration < 0) {
+                return;
+            }
             //Do it a bit earlier than half the lease duration time
             //to beat the native DHCP client and avoid extra packets
             //48% for one hour lease time = 29 minutes
