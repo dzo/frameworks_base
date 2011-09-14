@@ -3550,6 +3550,12 @@ public final class Settings {
          * @hide
          */
         public static final String KILL_APP_LONGPRESS_BACK = "kill_app_on_longpress_back";
+
+        /**
+         * Whether to wake the screen with the volume keys. The value is boolean (1 or 0)
+         * @hide
+         */
+        public static final String VOLUME_WAKE_SCREEN = "volume_wake_screen";
         
         /**
          * @hide
