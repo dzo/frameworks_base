@@ -1892,7 +1892,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     & (WindowManagerPolicy.FLAG_WAKE | WindowManagerPolicy.FLAG_WAKE_DROPPED)) != 0;
 
             if(!isScreenOn && mVolumeWakeScreen && isWakeKey && ((keyCode == KeyEvent.KEYCODE_VOLUME_UP)
-                     || (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN)))
+                     || (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN)) && !isMusicActive())
                  keyCode=KeyEvent.KEYCODE_POWER;
 
             Log.i(TAG, "wake keycode=" + keyCode);
