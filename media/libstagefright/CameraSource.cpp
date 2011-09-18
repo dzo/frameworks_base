@@ -142,10 +142,6 @@ CameraSource::CameraSource(const sp<Camera> &camera)
     params.getPreviewSize(&width, &height);
 
     LOGI("CameraSource %d x %d",width, height);
-    if(width==176) {
-        width=1280;
-        height=720;
-    }
 
     // Calculate glitch duraton threshold based on frame rate
     int32_t frameRate = params.getPreviewFrameRate();
