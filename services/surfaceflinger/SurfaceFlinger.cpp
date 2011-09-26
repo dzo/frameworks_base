@@ -1264,7 +1264,7 @@ sp<Layer> SurfaceFlinger::createNormalSurface(
         break;
     case PIXEL_FORMAT_OPAQUE:
 #ifdef NO_RGBX_8888
-        format = PIXEL_FORMAT_RGB_565;
+        format = PIXEL_FORMAT_RGBA_8888;
 #else
         format = PIXEL_FORMAT_RGBX_8888;
 #endif
