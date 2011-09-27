@@ -77,7 +77,7 @@ void OMXMaster::addPlugin(OMXPluginBase *plugin) {
     while ((err = plugin->enumerateComponents(
                     name, sizeof(name), index++)) == OMX_ErrorNone) {
         String8 name8(name);
-	LOGI("add Plugin ",name8.string());
+	LOGI("add Plugin %s",name8.string());
 
         if (mPluginByComponentName.indexOfKey(name8) >= 0) {
             LOGE("A component of name '%s' already exists, ignoring this one.",
