@@ -117,6 +117,8 @@ private:
         kRequiresLargerEncoderOutputBuffer    = 4096,
         kOutputBuffersAreUnreadable           = 8192,
         kStoreMetaDataInInputVideoBuffers     = 16384,
+        kCanNotSetVideoParameters             = 32768,
+        kDoesNotRequireMemcpyOnOutputPort     = 65536
     };
 
     struct BufferInfo {

@@ -1677,7 +1677,7 @@ status_t OMXCodec::allocateBuffersOnPort(OMX_U32 portIndex) {
              portIndex == kPortIndexInput ? "input" : "output");
     }
 
-    // dumpPortStatus(portIndex);
+    dumpPortStatus(portIndex);
 
     return OK;
 }
@@ -3372,30 +3372,30 @@ void OMXCodec::dumpPortStatus(OMX_U32 portIndex) {
             mNode, OMX_IndexParamPortDefinition, &def, sizeof(def));
     CHECK_EQ(err, OK);
 
-    printf("%s Port = {\n", portIndex == kPortIndexInput ? "Input" : "Output");
+    CODEC_LOGI("%s Port = {", portIndex == kPortIndexInput ? "Input" : "Output");
 
     CHECK((portIndex == kPortIndexInput && def.eDir == OMX_DirInput)
           || (portIndex == kPortIndexOutput && def.eDir == OMX_DirOutput));
 
-    printf("  nBufferCountActual = %ld\n", def.nBufferCountActual);
-    printf("  nBufferCountMin = %ld\n", def.nBufferCountMin);
-    printf("  nBufferSize = %ld\n", def.nBufferSize);
+    CODEC_LOGI("  nBufferCountActual = %ld", def.nBufferCountActual);
+    CODEC_LOGI("  nBufferCountMin = %ld", def.nBufferCountMin);
+    CODEC_LOGI("  nBufferSize = %ld", def.nBufferSize);
 
     switch (def.eDomain) {
         case OMX_PortDomainImage:
         {
             const OMX_IMAGE_PORTDEFINITIONTYPE *imageDef = &def.format.image;
 
-            printf("\n");
-            printf("  // Image\n");
-            printf("  nFrameWidth = %ld\n", imageDef->nFrameWidth);
-            printf("  nFrameHeight = %ld\n", imageDef->nFrameHeight);
-            printf("  nStride = %ld\n", imageDef->nStride);
+            CODEC_LOGI("");
+            CODEC_LOGI("  // Image");
+            CODEC_LOGI("  nFrameWidth = %ld", imageDef->nFrameWidth);
+            CODEC_LOGI("  nFrameHeight = %ld", imageDef->nFrameHeight);
+            CODEC_LOGI("  nStride = %ld", imageDef->nStride);
 
-            printf("  eCompressionFormat = %s\n",
+            CODEC_LOGI("  eCompressionFormat = %s",
                    imageCompressionFormatString(imageDef->eCompressionFormat));
 
-            printf("  eColorFormat = %s\n",
+            CODEC_LOGI("  eColorFormat = %s",
                    colorFormatString(imageDef->eColorFormat));
 
             break;
@@ -3405,16 +3405,16 @@ void OMXCodec::dumpPortStatus(OMX_U32 portIndex) {
         {
             OMX_VIDEO_PORTDEFINITIONTYPE *videoDef = &def.format.video;
 
-            printf("\n");
-            printf("  // Video\n");
-            printf("  nFrameWidth = %ld\n", videoDef->nFrameWidth);
-            printf("  nFrameHeight = %ld\n", videoDef->nFrameHeight);
-            printf("  nStride = %ld\n", videoDef->nStride);
+            CODEC_LOGI("");
+            CODEC_LOGI("  // Video");
+            CODEC_LOGI("  nFrameWidth = %ld", videoDef->nFrameWidth);
+            CODEC_LOGI("  nFrameHeight = %ld", videoDef->nFrameHeight);
+            CODEC_LOGI("  nStride = %ld", videoDef->nStride);
 
-            printf("  eCompressionFormat = %s\n",
+            CODEC_LOGI("  eCompressionFormat = %s",
                    videoCompressionFormatString(videoDef->eCompressionFormat));
 
-            printf("  eColorFormat = %s\n",
+            CODEC_LOGI("  eColorFormat = %s",
                    colorFormatString(videoDef->eColorFormat));
 
             break;
@@ -3424,9 +3424,9 @@ void OMXCodec::dumpPortStatus(OMX_U32 portIndex) {
         {
             OMX_AUDIO_PORTDEFINITIONTYPE *audioDef = &def.format.audio;
 
-            printf("\n");
-            printf("  // Audio\n");
-            printf("  eEncoding = %s\n",
+            CODEC_LOGI("");
+            CODEC_LOGI("  // Audio");
+            CODEC_LOGI("  eEncoding = %s",
                    audioCodingTypeString(audioDef->eEncoding));
 
             if (audioDef->eEncoding == OMX_AUDIO_CodingPCM) {
@@ -3438,16 +3438,16 @@ void OMXCodec::dumpPortStatus(OMX_U32 portIndex) {
                         mNode, OMX_IndexParamAudioPcm, &params, sizeof(params));
                 CHECK_EQ(err, OK);
 
-                printf("  nSamplingRate = %ld\n", params.nSamplingRate);
-                printf("  nChannels = %ld\n", params.nChannels);
-                printf("  bInterleaved = %d\n", params.bInterleaved);
-                printf("  nBitPerSample = %ld\n", params.nBitPerSample);
+                CODEC_LOGI("  nSamplingRate = %ld", params.nSamplingRate);
+                CODEC_LOGI("  nChannels = %ld", params.nChannels);
+                CODEC_LOGI("  bInterleaved = %d", params.bInterleaved);
+                CODEC_LOGI("  nBitPerSample = %ld", params.nBitPerSample);
 
-                printf("  eNumData = %s\n",
+                CODEC_LOGI("  eNumData = %s",
                        params.eNumData == OMX_NumericalDataSigned
                         ? "signed" : "unsigned");
 
-                printf("  ePCMMode = %s\n", audioPCMModeString(params.ePCMMode));
+                CODEC_LOGI("  ePCMMode = %s", audioPCMModeString(params.ePCMMode));
             } else if (audioDef->eEncoding == OMX_AUDIO_CodingAMR) {
                 OMX_AUDIO_PARAM_AMRTYPE amr;
                 InitOMXParams(&amr);
@@ -3457,10 +3457,10 @@ void OMXCodec::dumpPortStatus(OMX_U32 portIndex) {
                         mNode, OMX_IndexParamAudioAmr, &amr, sizeof(amr));
                 CHECK_EQ(err, OK);
 
-                printf("  nChannels = %ld\n", amr.nChannels);
-                printf("  eAMRBandMode = %s\n",
+                CODEC_LOGI("  nChannels = %ld", amr.nChannels);
+                CODEC_LOGI("  eAMRBandMode = %s",
                         amrBandModeString(amr.eAMRBandMode));
-                printf("  eAMRFrameFormat = %s\n",
+                CODEC_LOGI("  eAMRFrameFormat = %s",
                         amrFrameFormatString(amr.eAMRFrameFormat));
             }
 
@@ -3469,12 +3469,12 @@ void OMXCodec::dumpPortStatus(OMX_U32 portIndex) {
 
         default:
         {
-            printf("  // Unknown\n");
+            CODEC_LOGI("  // Unknown");
             break;
         }
     }
 
-    printf("}\n");
+    CODEC_LOGI("}");
 }
 
 void OMXCodec::initOutputFormat(const sp<MetaData> &inputFormat) {
@@ -3611,14 +3611,19 @@ void OMXCodec::initOutputFormat(const sp<MetaData> &inputFormat) {
                 CHECK(!"Unknown compression format.");
             }
 
-	    LOGI("OMX_PortDomainVideo %s %d",mComponentName,mIsEncoder);
+            LOGI("OMX_PortDomainVideo %s %d %d",mComponentName,mIsEncoder,mOMXLivesLocally);
             if (!strcmp(mComponentName, "OMX.PV.avcdec") || !strcmp(mComponentName, "OMX.qcom.7x30.video.decoder.avc")) {
                 // This component appears to be lying to me.
                 mOutputFormat->setInt32(
                         kKeyWidth, (video_def->nFrameWidth + 15) & -16);
-                mOutputFormat->setInt32(
-                        kKeyHeight, (video_def->nFrameHeight + 15) & -16);
-		LOGI("%d %d %d %d",video_def->nFrameWidth, video_def->nFrameHeight, video_def->nStride, video_def->nSliceHeight);
+                if(mOMXLivesLocally) {
+                    mOutputFormat->setInt32(kKeyWidth, (video_def->nFrameWidth + 15) & -16);
+                    mOutputFormat->setInt32(kKeyHeight, (video_def->nFrameHeight + 15) & -16);
+                } else {
+                   mOutputFormat->setInt32(kKeyWidth, (video_def->nFrameWidth - 15) & -16);
+                   mOutputFormat->setInt32(kKeyHeight, (video_def->nFrameHeight - 15) & -16 );
+                }
+                LOGI("%d %d %d %d",video_def->nFrameWidth, video_def->nFrameHeight, video_def->nStride, video_def->nSliceHeight);
             } else 
 
 	     {
@@ -3631,9 +3636,9 @@ void OMXCodec::initOutputFormat(const sp<MetaData> &inputFormat) {
                     CHECK( success );
                     mOutputFormat->setInt32(kKeyWidth, width );
                     mOutputFormat->setInt32(kKeyHeight, height );
-		}
+                }
                 else {
-                    LOGV("video_def->nStride = %d, video_def->nSliceHeight = %d", video_def->nStride,
+                    LOGI("video_def->nStride = %d, video_def->nSliceHeight = %d", video_def->nStride,
                             video_def->nSliceHeight );
 //                    if (video_def->nStride && video_def->nSliceHeight) {
 //                        /* Make sure we actually got the values from the decoder */
