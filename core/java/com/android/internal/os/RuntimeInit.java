@@ -165,7 +165,7 @@ public class RuntimeInit {
                 result.append(model);
             }
         }
-        String id = Build.ID; // "MASTER" or "M4-rc20"
+        String id = Build.DISPLAY; // "MASTER" or "M4-rc20"
         if (id.length() > 0) {
             result.append(" Build/");
             result.append(id);

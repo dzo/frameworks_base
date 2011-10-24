@@ -403,7 +403,7 @@ public class WebSettings {
                 buffer.append(model);
             }
         }
-        final String id = Build.ID;
+        final String id = Build.DISPLAY;
         if (id.length() > 0) {
             buffer.append(" Build/");
             buffer.append(id);
