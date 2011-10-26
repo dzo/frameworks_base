@@ -13,7 +13,7 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := \
 	Main.cpp
 
-LOCAL_CFLAGS := -Wall -Werror
+LOCAL_CFLAGS := -Wall
 
 #LOCAL_C_INCLUDES +=
 
