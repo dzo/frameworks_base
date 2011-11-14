@@ -2381,11 +2381,17 @@ class PowerManagerService extends IPowerManager.Stub
             if ((mPowerState & BATTERY_LOW_BIT) == 0) {
                 // we only do this if we are undocked, since lighting should be stable when
                 // stationary in a dock.
-                int lcdValue = getAutoBrightnessValue(
+                int lcdValue;
+                try {
+                lcdValue = getAutoBrightnessValue(
                         (mIsDocked ? value : (int)mLightSensorValue),
-                        mLcdBacklightValues);
+                        mLcdBacklightValues)+Settings.System.getInt(mContext.getContentResolver(),
+                                                          SCREEN_BRIGHTNESS)-30;
+                } catch (SettingNotFoundException snfe) { lcdValue = 255; }
                 int buttonValue = getAutoBrightnessValue(value, mButtonBacklightValues);
                 int keyboardValue;
+
+                if(lcdValue>255) lcdValue=255;
                 if (mKeyboardVisible) {
                     keyboardValue = getAutoBrightnessValue(value, mKeyboardBacklightValues);
                 } else {
