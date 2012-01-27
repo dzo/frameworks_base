@@ -3313,6 +3313,7 @@ private NetworkStateTracker makeWimaxStateTracker() {
                 Slog.d(TAG, "RemoteException " + e.getMessage());
             }
             mFmcEnabled = mFmcSM.startFmc();
+            Slog.d(TAG, "mFmcEnabled=" + mFmcEnabled);
             return mFmcEnabled;
         } else {
             Slog.d(TAG, "mFmcSM is null while calling startFmc");
@@ -3322,7 +3323,7 @@ private NetworkStateTracker makeWimaxStateTracker() {
 
     /* Used by FmcProvider stop FMC */
     public boolean stopFmc(IBinder listener) {
-        mFmcEnabled = false;
+        setFmcDisabled();
         if (mFmcSM != null) {
             return mFmcSM.stopFmc();
         } else {
@@ -3345,6 +3346,7 @@ private NetworkStateTracker makeWimaxStateTracker() {
     /* Used by FmcStateMachine to control network connections */
     public void setFmcDisabled() {
         mFmcEnabled = false;
+        Slog.d(TAG, "mFmcEnabled=" + mFmcEnabled);
     }
 
     /* Used by FmcStateMachine to control network connections */
@@ -3354,6 +3356,7 @@ private NetworkStateTracker makeWimaxStateTracker() {
         if (ratType == ConnectivityManager.TYPE_MOBILE) {
             if (!getMobileDataEnabled()) {
                 if (DBG) Slog.d(TAG, "mobile data service disabled");
+                reconnect(ratType);
                 return false;
             }
         } else if (ratType != ConnectivityManager.TYPE_WIFI) {
