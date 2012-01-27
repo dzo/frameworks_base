@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,6 +51,7 @@ final class NativeDaemonConnector implements Runnable, Handler.Callback, Watchdo
     private Object mDaemonLock = new Object();
 
     private final int BUFFER_SIZE = 4096;
+    private static final String COMMUNICATION_FAILED_COMMAND = "FAILED";
 
     class ResponseCode {
         public static final int ActionInitiated                = 100;
@@ -174,6 +176,12 @@ final class NativeDaemonConnector implements Runnable, Handler.Callback, Watchdo
             Slog.e(TAG, "Communications error", ex);
             throw ex;
         } finally {
+            // Unblock waiting doCommand
+            try {
+                mResponseQueue.add(COMMUNICATION_FAILED_COMMAND);
+            } catch (Exception e) {
+                // It's ok. We only want to make sure reader from this queue is not blocked.
+            }
             synchronized (mDaemonLock) {
                 if (mOutputStream != null) {
                     try {
@@ -254,6 +262,9 @@ final class NativeDaemonConnector implements Runnable, Handler.Callback, Watchdo
             try {
                 // TODO - this should not block forever
                 String line = mResponseQueue.take();
+                if (line.equals(COMMUNICATION_FAILED_COMMAND)) {
+                    throw new NativeDaemonConnectorException("Communication failed");
+                }
                 if (LOCAL_LOGD) Slog.d(TAG, String.format("RSP <- {%s}", line));
                 String[] tokens = line.split(" ");
                 try {
