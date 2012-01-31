@@ -937,7 +937,9 @@ public class MediaPlayer
         Log.d(TAG, "start() mUri is " + mUri);
         intent.putExtra("uripath", mUri);
         intent.putExtra("playstate", 1);
-        mContext.sendBroadcast(intent);
+        if (mContext != null) {
+           mContext.sendBroadcast(intent);
+        }
 
         _start();
     }
@@ -960,7 +962,9 @@ public class MediaPlayer
         Log.d(TAG, "stop() mUri is " + mUri);
         intent.putExtra("uripath", mUri);
         intent.putExtra("playstate", 0);
-        mContext.sendBroadcast(intent);
+        if (mContext != null) {
+           mContext.sendBroadcast(intent);
+        }
 
     }
 
@@ -982,7 +986,9 @@ public class MediaPlayer
         Log.d(TAG, "pause() mUri is " + mUri);
         intent.putExtra("uripath", mUri);
         intent.putExtra("playstate", 2);
-        mContext.sendBroadcast(intent);
+        if (mContext != null) {
+           mContext.sendBroadcast(intent);
+        }
 
     }
 
