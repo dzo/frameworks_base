@@ -2043,6 +2043,9 @@ public final class Settings {
         */
         public static final String EXPANDED_FLASH_MODE = "expanded_flash_mode";
 
+        /** @hide */
+        public static final String VOLBTN_MUSIC_CONTROLS = "volbtn_music_controls";
+
         /**
          * Settings to backup. This is here so that it's in the same place as the settings
          * keys and easy to update.
