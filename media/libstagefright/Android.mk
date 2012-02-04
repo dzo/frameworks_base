@@ -107,6 +107,8 @@ LOCAL_SHARED_LIBRARIES := \
 
 LOCAL_STATIC_LIBRARIES := \
         libstagefright_color_conversion \
+        libstagefright_aacdec \
+        libstagefright_mp3dec \
         libstagefright_aacenc \
         libstagefright_amrnbenc \
         libstagefright_amrwbenc \
