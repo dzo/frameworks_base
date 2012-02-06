@@ -383,7 +383,9 @@ public class BluetoothService extends IBluetooth.Stub {
         mBluetoothState = new BluetoothAdapterStateMachine(mContext, this, mAdapter);
         mBluetoothState.start();
         if (mContext.getResources().getBoolean
-            (com.android.internal.R.bool.config_bluetooth_adapter_quick_switch)) {
+            (com.android.internal.R.bool.config_bluetooth_adapter_quick_switch) &&
+            !(("msm7630_surf".equals(SystemProperties.get("ro.product.device")))
+            ||("msm7630_fusion".equals(SystemProperties.get("ro.product.device"))))) {
             mBluetoothState.sendMessage(BluetoothAdapterStateMachine.TURN_HOT);
         }
         mEventLoop = mBluetoothState.getBluetoothEventLoop();
