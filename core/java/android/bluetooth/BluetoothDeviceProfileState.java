@@ -128,6 +128,8 @@ public final class BluetoothDeviceProfileState extends StateMachine {
     private PowerManager.WakeLock mWakeLock;
     private PowerManager mPowerManager;
     private boolean mPairingRequestRcvd = false;
+    private boolean mExpectingSdpComplete = false;
+
     private boolean mUnpairStarted = false;
 
     private BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
@@ -206,7 +208,11 @@ public final class BluetoothDeviceProfileState extends StateMachine {
                     mPairingRequestRcvd = false;
                 } else if (state == BluetoothDevice.BOND_NONE) {
                     mPairingRequestRcvd = false;
+                } else if (state == BluetoothDevice.BOND_BONDED) {
+                    mExpectingSdpComplete = true;
                 }
+            } else if (action.equals(BluetoothDevice.ACTION_UUID)) {
+                 mExpectingSdpComplete = false;
             }
         }
     };
@@ -253,6 +259,7 @@ public final class BluetoothDeviceProfileState extends StateMachine {
         filter.addAction(BluetoothDevice.ACTION_CONNECTION_ACCESS_REPLY);
         filter.addAction(BluetoothDevice.ACTION_PAIRING_REQUEST);
         filter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
+        filter.addAction(BluetoothDevice.ACTION_UUID);
 
         mContext.registerReceiver(mBroadcastReceiver, filter);
 
@@ -436,6 +443,8 @@ public final class BluetoothDeviceProfileState extends StateMachine {
                     }
                     if (message.arg1 == CONNECT_A2DP_OUTGOING) {
                         if (mA2dpService != null &&
+                            (mA2dpService.getPriority(mDevice) >
+                             BluetoothProfile.PRIORITY_OFF) &&
                             mA2dpService.getDevicesMatchingConnectionStates(
                                 new int[] {BluetoothProfile.STATE_CONNECTED,
                                            BluetoothProfile.STATE_CONNECTING}).size() ==0) {
@@ -446,9 +455,11 @@ public final class BluetoothDeviceProfileState extends StateMachine {
                         if (mHeadsetService == null) {
                             deferMessage(message);
                         } else {
-                            if (mHeadsetService.getDevicesMatchingConnectionStates(
-                                new int[] {BluetoothProfile.STATE_CONNECTED,
-                                           BluetoothProfile.STATE_CONNECTING}).size() ==0) {
+                            if ((mHeadsetService.getPriority(mDevice) >
+                                 BluetoothProfile.PRIORITY_OFF) &&
+                                 mHeadsetService.getDevicesMatchingConnectionStates(
+                                    new int[] {BluetoothProfile.STATE_CONNECTED,
+                                               BluetoothProfile.STATE_CONNECTING}).size() ==0) {
                                 Log.i(TAG, "Headset:Connect Other Profiles");
                                 mHeadsetService.connect(mDevice);
                             }
@@ -1382,6 +1393,11 @@ public final class BluetoothDeviceProfileState extends StateMachine {
                     msg.what = CONNECT_OTHER_PROFILES;
                     msg.arg1 = CONNECT_A2DP_OUTGOING;
                     sendMessageDelayed(msg, CONNECT_OTHER_PROFILES_DELAY);
+                } else if (mExpectingSdpComplete) {
+                    Message msg = new Message();
+                    msg.what = CONNECT_OTHER_PROFILES;
+                    msg.arg1 = CONNECT_A2DP_OUTGOING;
+                    sendMessageDelayed(msg, CONNECT_OTHER_PROFILES_DELAY);
                 }
                 break;
             case CONNECT_A2DP_INCOMING:
@@ -1400,6 +1416,12 @@ public final class BluetoothDeviceProfileState extends StateMachine {
                     if (headsets.contains(mDevice)) {
                         return; // Already profile connection in progress
                     }
+                    Message msg = new Message();
+                    msg.what = CONNECT_OTHER_PROFILES;
+                    msg.arg1 = CONNECT_HFP_OUTGOING;
+                    sendMessageDelayed(msg, CONNECT_OTHER_PROFILES_DELAY);
+                } else if (mHeadsetService != null &&
+                           mExpectingSdpComplete) {
                     Message msg = new Message();
                     msg.what = CONNECT_OTHER_PROFILES;
                     msg.arg1 = CONNECT_HFP_OUTGOING;
