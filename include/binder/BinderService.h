@@ -47,7 +47,14 @@ public:
         IPCThreadState::self()->joinThreadPool();
     }
 
-    static void instantiate() { publish(); }
+    static void instantiate() { 
+        if(publish()!=NO_ERROR){
+            int pid = getpid();
+            LOGI("BinderService kill pid: %d", pid);
+            if(pid > 0)
+                kill(pid, SIGKILL);
+        }
+    }
 
     static status_t shutdown() {
         return NO_ERROR;
