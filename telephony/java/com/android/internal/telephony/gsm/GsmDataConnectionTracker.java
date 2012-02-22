@@ -70,7 +70,6 @@ import com.android.internal.telephony.RILConstants;
 import com.android.internal.telephony.RetryManager;
 import com.android.internal.telephony.UiccCard;
 import com.android.internal.telephony.UiccManager.AppFamily;
-import com.android.internal.telephony.cdma.CdmaSubscriptionSourceManager;
 import com.android.internal.util.AsyncChannel;
 
 import java.util.ArrayList;
@@ -155,6 +154,9 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
     private String mCdmaHomeOperatorNumeric = SystemProperties.get(
             "ro.cdma.home.operator.numeric", null);
 
+    private boolean mUseNvOperatorForEhrpd = SystemProperties.getBoolean(
+            "persist.radio.use_nv_for_ehrpd", false);
+
     @Override
     protected void onActionIntentReconnectAlarm(Intent intent) {
         String reason = intent.getStringExtra(INTENT_RECONNECT_ALARM_EXTRA_REASON);
@@ -191,8 +193,6 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
     /** Watches for changes to the APN db. */
     private ApnChangeObserver mApnObserver;
 
-    private CdmaSubscriptionSourceManager mCdmaSSM;
-
     //***** Constructor
 
     public GsmDataConnectionTracker(PhoneBase p) {
@@ -220,9 +220,6 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
         filter.addAction(INTENT_DATA_STALL_ALARM);
         p.getContext().registerReceiver(mIntentReceiver, filter, null, p);
 
-        mCdmaSSM = CdmaSubscriptionSourceManager.getInstance (p.getContext(), p.mCM, this,
-                EVENT_CDMA_SUBSCRIPTION_SOURCE_CHANGED, null);
-
         mDataConnectionTracker = this;
         mResolver = mPhone.getContext().getContentResolver();
 
@@ -236,11 +233,10 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
 
         log("SUPPORT_MPDN = " + SUPPORT_MPDN);
         log("mCdmaHomeOperatorNumeric = " + mCdmaHomeOperatorNumeric);
+        log("mUseNvOperatorForEhrpd = " + mUseNvOperatorForEhrpd);
 
-        boolean subscriptionFromNv = (mCdmaSSM.getCdmaSubscriptionSource()
-                == CdmaSubscriptionSourceManager.SUBSCRIPTION_FROM_NV);
         int radioTech  = mPhone.getServiceState().getRadioTechnology();
-        if (subscriptionFromNv && radioTech == ServiceState.RADIO_TECHNOLOGY_EHRPD &&
+        if (mUseNvOperatorForEhrpd && radioTech == ServiceState.RADIO_TECHNOLOGY_EHRPD &&
                 mCdmaHomeOperatorNumeric != null) {
             if (DBG) log("Subscription from NV and EHRPD: createAllApnList");
             createAllApnList();
@@ -659,13 +655,11 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
         int gprsState = mPhone.getServiceStateTracker().getCurrentDataConnectionState();
         boolean desiredPowerState = mPhone.getServiceStateTracker().getDesiredPowerState();
         boolean recordsLoaded = (mIccRecords != null) ? mIccRecords.getRecordsLoaded() : false;
-        boolean subscriptionFromNv = (mCdmaSSM.getCdmaSubscriptionSource()
-                == CdmaSubscriptionSourceManager.SUBSCRIPTION_FROM_NV);
         int radioTech  = mPhone.getServiceState().getRadioTechnology();
 
         boolean allowed =
                     (gprsState == ServiceState.STATE_IN_SERVICE || mAutoAttachOnCreation) &&
-                    ((subscriptionFromNv &&
+                    ((mUseNvOperatorForEhrpd &&
                       radioTech == ServiceState.RADIO_TECHNOLOGY_EHRPD &&
                       mCdmaHomeOperatorNumeric != null) ||
                      recordsLoaded) &&
@@ -680,10 +674,10 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
             if (!((gprsState == ServiceState.STATE_IN_SERVICE) || mAutoAttachOnCreation)) {
                 reason += " - gprs= " + gprsState;
             }
-            if (subscriptionFromNv && radioTech == ServiceState.RADIO_TECHNOLOGY_EHRPD &&
+            if (mUseNvOperatorForEhrpd && radioTech == ServiceState.RADIO_TECHNOLOGY_EHRPD &&
                     mCdmaHomeOperatorNumeric == null)
                 reason += " - Cdma Home Operator Numeric not available";
-            if (!subscriptionFromNv && !recordsLoaded) reason += " - SIM not loaded";
+            if (!mUseNvOperatorForEhrpd && !recordsLoaded) reason += " - SIM not loaded";
             if (mPhone.getState() != Phone.State.IDLE &&
                     !mPhone.getServiceStateTracker().isConcurrentVoiceAndDataAllowed()) {
                 reason += " - PhoneState= " + mPhone.getState();
@@ -2638,16 +2632,6 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
                 onRecordsLoaded();
                 break;
 
-            case EVENT_CDMA_SUBSCRIPTION_SOURCE_CHANGED:
-                int radioTech  = mPhone.getServiceState().getRadioTechnology();
-                if (radioTech == ServiceState.RADIO_TECHNOLOGY_EHRPD) {
-                    // Update the APN list based on the operator numeric from
-                    // ro.cdma.home.operator.numeric(in case of NV), or from the
-                    // icc record(in case of RUIM) and try setup data on the new APNs.
-                    onRecordsLoaded();
-                }
-                break;
-
             case EVENT_DATA_CONNECTION_DETACHED:
                 onDataConnectionDetached();
                 break;
@@ -2809,12 +2793,22 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
 
     private String getOperatorNumeric() {
         int radioTech = mPhone.getServiceState().getRadioTechnology();
-        boolean subscriptionFromNv = (mCdmaSSM.getCdmaSubscriptionSource()
-                == CdmaSubscriptionSourceManager.SUBSCRIPTION_FROM_NV);
-        if (subscriptionFromNv && radioTech == ServiceState.RADIO_TECHNOLOGY_EHRPD) {
-            return mCdmaHomeOperatorNumeric;
+        String operatorNumeric;
+        String source;
+        if (mUseNvOperatorForEhrpd && radioTech == ServiceState.RADIO_TECHNOLOGY_EHRPD) {
+            operatorNumeric = mCdmaHomeOperatorNumeric;
+            source = "ro.cdma.home.operator_numeric";
+        } else if (mIccRecords == null) {
+            operatorNumeric = null;
+            source = "IccRecords == null";
+        } else {
+            operatorNumeric = mIccRecords.getOperatorNumeric();
+            source = "IccRecords";
         }
-        return (mIccRecords == null ? null : mIccRecords.getOperatorNumeric());
+        log("getOperatorNumeric = " + operatorNumeric + " from " + source +
+                " (mUseNvOperatorForEhrpd=" + mUseNvOperatorForEhrpd + " radioTech=" +
+                radioTech + ")");
+        return operatorNumeric;
     }
 
     @Override
