@@ -1393,7 +1393,6 @@ public class SIMRecords extends IccRecords {
         if (mEonsEnabled) {
             mFh.loadEFLinearFixedAll(EF_OPL, obtainMessage(EVENT_GET_ALL_OPL_RECORDS_DONE));
             recordsToLoad++;
-
             mFh.loadEFLinearFixedAll(EF_PNN, obtainMessage(EVENT_GET_ALL_PNN_RECORDS_DONE));
             recordsToLoad++;
         }
