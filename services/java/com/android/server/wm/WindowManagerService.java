@@ -5042,7 +5042,10 @@ public class WindowManagerService extends IWindowManager.Stub
     }
 
     public void setStrictModeVisualIndicatorPreference(String value) {
-        SystemProperties.set(StrictMode.VISUAL_PROPERTY, value);
+        if(value.equals("1"))
+            SystemProperties.set(StrictMode.VISUAL_PROPERTY, value);
+        else
+            SystemProperties.set(StrictMode.VISUAL_PROPERTY, "0");
     }
 
     /**
