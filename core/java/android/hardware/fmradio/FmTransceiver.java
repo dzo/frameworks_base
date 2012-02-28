@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -220,15 +220,15 @@ public class FmTransceiver
    *            device could not be released
    *    @see   #acquire
    */
-   protected boolean release(String device) {
+   static boolean release(String device) {
       if (sFd!=0)
       {
          FmReceiverJNI.closeFdNative(sFd);
          sFd = 0;
-         Log.d(TAG, "Turned off: " + sFd);
+         Log.d("FmTransceiver", "Turned off: " + sFd);
       } else
       {
-         Log.d(TAG, "Error turning off");
+         Log.d("FmTransceiver", "Error turning off");
       }
       return true;
    }
@@ -399,6 +399,7 @@ public class FmTransceiver
    */
    public boolean enable (FmConfig configSettings, int device){
 
+      boolean status;
       //Acquire the deviceon Enable
       if( !acquire("/dev/radio0")){
          return false;
@@ -407,8 +408,13 @@ public class FmTransceiver
       mControl.fmOn(sFd, device);
 
       Log.d(TAG, "Calling fmConfigure");
-      return FmConfig.fmConfigure (sFd, configSettings);
-
+      status = FmConfig.fmConfigure (sFd, configSettings);
+      if (!status) {
+          Log.d(TAG, "fmConfigure failed");
+          FmReceiverJNI.closeFdNative(sFd);
+          sFd = 0;
+      }
+      return status;
    }
 
    /*==============================================================
@@ -432,9 +438,6 @@ public class FmTransceiver
    */
    public boolean disable(){
       mControl.fmOff(sFd);
-
-      /* Release the device on Disable */
-      release("/dev/radio0");
       return true;
    }
 

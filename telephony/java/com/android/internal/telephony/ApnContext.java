@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006 The Android Open Source Project
+ * Copyright (c) 2012 Code Aurora Forum. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,6 +59,8 @@ public class ApnContext {
      * carrier requirements met
      */
     AtomicBoolean mDependencyMet;
+
+    private boolean mInPartialRetry = false;
 
     public ApnContext(String apnType, String logTag) {
         mApnType = apnType;
@@ -191,7 +194,7 @@ public class ApnContext {
     }
 
     public boolean isReady() {
-        return mDataEnabled.get() && mDependencyMet.get();
+        return mDataEnabled.get() && mDependencyMet.get() && !getTetheredCallOn();
     }
 
     public void setEnabled(boolean enabled) {
@@ -225,5 +228,21 @@ public class ApnContext {
 
     protected void log(String s) {
         Log.d(LOG_TAG, "[ApnContext] " + s);
+    }
+
+    public void setTetheredCallOn(boolean tetheredCallOn) {
+        if (mDataProfile != null) mDataProfile.setTetheredCallOn(tetheredCallOn);
+    }
+
+    public boolean getTetheredCallOn() {
+        return mDataProfile == null ? false : mDataProfile.getTetheredCallOn();
+    }
+
+    public void setInPartialRetry(boolean inPartialRetry) {
+        mInPartialRetry = inPartialRetry;
+    }
+
+    public boolean isInPartialRetry() {
+        return mInPartialRetry;
     }
 }

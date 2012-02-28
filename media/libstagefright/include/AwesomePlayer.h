@@ -208,6 +208,7 @@ private:
     bool mBufferingEventPending;
     sp<TimedEventQueue::Event> mCheckAudioStatusEvent;
     bool mAudioStatusEventPending;
+    Condition mAudioStatusCondition;
     sp<TimedEventQueue::Event> mVideoLagEvent;
     bool mVideoLagEventPending;
 
@@ -335,13 +336,14 @@ private:
         uint32_t mMaxEarlyDelta;
         uint32_t mMaxLateDelta;
         uint32_t mMaxTimeSyncLoss;
-        uint32_t mTotalFrames;
+        uint64_t mTotalFrames;
         int64_t mFirstFrameLatencyStartUs; //first frame latency start
         int64_t mLastFrame;
         int64_t mLastFrameUs;
         float mFPSSumUs;
         int64_t mStatisticsFrames;
         bool mVeryFirstFrame;
+        int64_t mTotalTime;
 
     } mStats;
 

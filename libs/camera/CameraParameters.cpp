@@ -119,11 +119,16 @@ const char CameraParameters::KEY_MAX_NUM_DETECTED_FACES_HW[] = "max-num-detected
 const char CameraParameters::KEY_MAX_NUM_DETECTED_FACES_SW[] = "max-num-detected-faces-sw";
 const char CameraParameters::KEY_RECORDING_HINT[] = "recording-hint";
 const char CameraParameters::KEY_VIDEO_SNAPSHOT_SUPPORTED[] = "video-snapshot-supported";
+const char CameraParameters::KEY_FULL_VIDEO_SNAP_SUPPORTED[] = "full-video-snap-supported";
 const char CameraParameters::KEY_VIDEO_STABILIZATION[] = "video-stabilization";
 const char CameraParameters::KEY_VIDEO_STABILIZATION_SUPPORTED[] = "video-stabilization-supported";
 const char CameraParameters::KEY_ZSL[] = "zsl";
 const char CameraParameters::KEY_SUPPORTED_ZSL_MODES[] = "zsl-values";
 const char CameraParameters::KEY_CAMERA_MODE[] = "camera-mode";
+const char CameraParameters::KEY_AE_BRACKET_HDR[] = "ae-bracket-hdr";
+/*only effective when KEY_AE_BRACKET_HDR set to ae_bracketing*/
+//const char CameraParameters::KEY_AE_BRACKET_SETTING_KEY[] = "ae-bracket-setting";
+
 const char CameraParameters::TRUE[] = "true";
 const char CameraParameters::FALSE[] = "false";
 const char CameraParameters::FOCUS_DISTANCE_INFINITY[] = "Infinity";
@@ -310,6 +315,11 @@ const char CameraParameters::HDR_DISABLE[] = "disable";
 // Values for ZSL settings.
 const char CameraParameters::ZSL_OFF[] = "off";
 const char CameraParameters::ZSL_ON[] = "on";
+
+// Values for HDR Bracketing settings.
+const char CameraParameters::AE_BRACKET_HDR_OFF[] = "Off";
+const char CameraParameters::AE_BRACKET_HDR[] = "HDR";
+const char CameraParameters::AE_BRACKET[] = "AE-Bracket";
 
 static const char* portrait = "portrait";
 static const char* landscape = "landscape";
@@ -750,7 +760,7 @@ status_t CameraParameters::dump(int fd, const Vector<String16>& args) const
         k = mMap.keyAt(i);
         v = mMap.valueAt(i);
         snprintf(buffer, 255, "\t%s: %s\n", k.string(), v.string());
-        result.append(buffer);
+       result.append(buffer);
     }
     write(fd, result.string(), result.size());
     return NO_ERROR;

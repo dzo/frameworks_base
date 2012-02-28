@@ -43,13 +43,18 @@ struct NuPlayer::Source : public RefBase {
         return INVALID_OPERATION;
     }
 
-    virtual status_t seekTo(int64_t seekTimeUs, int64_t* newSeekTime = NULL ) {
+    virtual status_t seekTo(int64_t seekTimeUs) {
         return INVALID_OPERATION;
     }
 
     virtual bool isSeekable() {
         return false;
     }
+
+    virtual status_t getNewSeekTime(int64_t* newSeek) {
+        return INVALID_OPERATION;
+    }
+    virtual void notifyRenderingPosition(int64_t nRenderingTS) {}
 
 protected:
     virtual ~Source() {}

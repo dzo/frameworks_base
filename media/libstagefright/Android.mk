@@ -74,7 +74,6 @@ LOCAL_SRC_FILES:=                         \
         ExtendedWriter.cpp                \
         FMA2DPWriter.cpp
 
-LOCAL_ADDITIONAL_DEPENDENCIES := $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
 
 LOCAL_C_INCLUDES:= \
         $(JNI_H_INCLUDE) \
@@ -86,8 +85,14 @@ LOCAL_C_INCLUDES:= \
         $(TOP)/hardware/qcom/display/libqcomui \
         $(TOP)/vendor/qcom/opensource/omx/mm-core/omxcore/inc \
         $(TOP)/system/core/include \
-        $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr \
         $(TOP)/hardware/libhardware_legacy/include
+
+ifeq ($(call is-vendor-board-platform,QCOM),true)
+LOCAL_ADDITIONAL_DEPENDENCIES := $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
+LOCAL_C_INCLUDES += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
+else
+LOCAL_CFLAGS += -DNON_QCOM_TARGET
+endif
 
 LOCAL_SHARED_LIBRARIES := \
         libbinder         \
@@ -107,6 +112,8 @@ LOCAL_SHARED_LIBRARIES := \
 
 LOCAL_STATIC_LIBRARIES := \
         libstagefright_color_conversion \
+        libstagefright_aacdec \
+        libstagefright_mp3dec \
         libstagefright_aacenc \
         libstagefright_amrnbenc \
         libstagefright_amrwbenc \
@@ -120,15 +127,16 @@ LOCAL_STATIC_LIBRARIES := \
         libstagefright_id3 \
         libFLAC \
 
-ifeq ($(BOARD_USES_ALSA_AUDIO),true)
+ifeq ($(call is-vendor-board-platform,QCOM),true)
+    ifeq ($(BOARD_USES_ALSA_AUDIO),true)
         LOCAL_SRC_FILES += LPAPlayerALSA.cpp
         LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-audio/libalsa-intf
         LOCAL_C_INCLUDES += $(TOP)/kernel/include/sound
         LOCAL_SHARED_LIBRARIES += libalsa-intf
-else
+    else
         LOCAL_SRC_FILES += LPAPlayer.cpp
+    endif
 endif
-
 ################################################################################
 
 # The following was shamelessly copied from external/webkit/Android.mk and
