@@ -55,6 +55,14 @@ public final class Settings {
 
     // Intent actions for Settings
 
+
+   /**
+    * Intent actions for Settings
+    *
+    * @hide
+    */
+    public static final String SETTINGS_CHANGED = "android.settings.SETTINGS_CHANGED_ACTION";
+
     /**
      * Activity Action: Show system settings.
      * <p>
@@ -1411,6 +1419,136 @@ public final class Settings {
         public static final int SCREEN_BRIGHTNESS_MODE_AUTOMATIC = 1;
 
         /**
+         * Indicates that custom light sensor settings has changed.
+         * The value is random and changes reloads light settings.
+         *
+         * @hide
+         */
+        public static final String LIGHTS_CHANGED = "lights_changed";
+
+        /**
+         * Whether custom light sensor levels & values are enabled. The value is
+         * boolean (1 or 0).
+         *
+         * @hide
+         */
+        public static final String LIGHT_SENSOR_CUSTOM = "light_sensor_custom";
+
+        /**
+         * Screen dim value to use if LIGHT_SENSOR_CUSTOM is set. The value is int.
+         * Default is android.os.BRIGHTNESS_DIM.
+         *
+         * @hide
+         */
+        public static final String LIGHT_SCREEN_DIM = "light_screen_dim";
+
+        /**
+         * Custom light sensor levels. The value is a comma separated int array
+         * with length N.
+         * Example: "100,300,3000".
+         *
+         * @hide
+         */
+        public static final String LIGHT_SENSOR_LEVELS = "light_sensor_levels";
+
+        /**
+         * Custom light sensor lcd values. The value is a comma separated int array
+         * with length N+1.
+         * Example: "10,50,100,255".
+         *
+         * @hide
+         */
+        public static final String LIGHT_SENSOR_LCD_VALUES = "light_sensor_lcd_values";
+
+        /**
+         * Custom light sensor lcd values. The value is a comma separated int array
+         * with length N+1.
+         * Example: "10,50,100,255".
+         *
+         * @hide
+         */
+        public static final String LIGHT_SENSOR_BUTTON_VALUES = "light_sensor_button_values";
+
+        /**
+         * Custom light sensor lcd values. The value is a comma separated int array
+         * with length N+1.
+         * Example: "10,50,100,255".
+         *
+         * @hide
+         */
+        public static final String LIGHT_SENSOR_KEYBOARD_VALUES = "light_sensor_keyboard_values";
+
+        /**
+         * Whether light sensor is allowed to decrease when calculating automatic
+         * backlight. The value is boolean (1 or 0).
+         *
+         * @hide
+         */
+        public static final String LIGHT_DECREASE = "light_decrease";
+
+        /**
+         * Light sensor hysteresis for decreasing backlight. The value is
+         * int (0-99) representing % (0-0.99 as float). Example:
+         *
+         * Levels     Output
+         * 0 - 100    50
+         * 100 - 200  100
+         * 200 - Inf  255
+         *
+         * Current sensor value is 150 which gives light value 100. Hysteresis is 50.
+         * Current level lower bound is 100 and previous lower bound is 0.
+         * Sensor value must drop below 100-(100-0)*(50/100)=50 for output to become 50
+         * (corresponding to the 0 - 100 level).
+         * @hide
+         */
+        public static final String LIGHT_HYSTERESIS = "light_hysteresis";
+
+        /**
+         * Whether light sensor used when calculating automatic backlight should
+         * be filtered through an moving average filter.
+         * The value is boolean (1 or 0).
+         *
+         * @hide
+         */
+        public static final String LIGHT_FILTER = "light_filter";
+
+        /**
+         * Window length of filter used when calculating automatic backlight.
+         * One minute means that the average sensor value last minute is used.
+         * The value is integer (milliseconds)
+         *
+         * @hide
+         */
+        public static final String LIGHT_FILTER_WINDOW = "light_filter_window";
+
+        /**
+         * Reset threshold of filter used when calculating automatic backlight.
+         * Sudden large jumps in sensor value resets the filter. This is used
+         * to make the filter respond quickly to large enough changes in input
+         * while still filtering small changes. Example:
+         *
+         * Current filter value (average) is 100 and sensor value is changing to
+         * 10, 150, 100, 30, 50. The filter is continously taking the average of
+         * the samples. Now the user goes outside and the value jumps over 1000.
+         * The difference between current average and new sample is larger than
+         * the reset threshold and filter is reset. It begins calculating a new
+         * average on samples around 1000 (say, 800, 1200, 1000, 1100 etc.)
+         *
+         * The value is integer (lux)
+         *
+         * @hide
+         */
+        public static final String LIGHT_FILTER_RESET = "light_filter_reset";
+
+        /**
+         * Sample interval of filter used when calculating automatic backlight.
+         * The value is integer (milliseconds)
+         *
+         * @hide
+         */
+        public static final String LIGHT_FILTER_INTERVAL = "light_filter_interval";
+
+        /**
          * Control whether the process CPU usage meter should be shown.
          */
         public static final String SHOW_PROCESSES = "show_processes";
@@ -1953,6 +2091,11 @@ public final class Settings {
         public static final String SIP_ASK_ME_EACH_TIME = "SIP_ASK_ME_EACH_TIME";
 
         /**
+        * Torch state (flashlight)
+         * @hide
+         */
+        public static final String TORCH_STATE = "torch_state";
+
          * Pointer speed setting.
          * This is an integer value in a range between -7 and +7, so there are 15 possible values.
          *   -7 = slowest
@@ -1963,10 +2106,191 @@ public final class Settings {
         public static final String POINTER_SPEED = "pointer_speed";
 
         /**
+         * Use the Notification Power Widget? (Who wouldn't!)
+         *
+         * @hide
+         */
+        public static final String EXPANDED_VIEW_WIDGET = "expanded_view_widget";
+
+        /**
+         * Whether to hide the notification screen after clicking on a widget
+         * button
+         *
+         * @hide
+         */
+        public static final String EXPANDED_HIDE_ONCHANGE = "expanded_hide_onchange";
+
+        /**
+         * Hide scroll bar in power widget
+         *
+         * @hide
+         */
+        public static final String EXPANDED_HIDE_SCROLLBAR = "expanded_hide_scrollbar";
+
+        /**
+         * Hide indicator in status bar widget
+         *
+         * @hide
+         */
+        public static final String EXPANDED_HIDE_INDICATOR = "expanded_hide_indicator";
+
+        /**
+         * Haptic feedback in power widget
+         *
+         * @hide
+         */
+        public static final String EXPANDED_HAPTIC_FEEDBACK = "expanded_haptic_feedback";
+
+        /**
+         * Notification Indicator Color
+         *
+         * @hide
+         */
+        public static final String EXPANDED_VIEW_WIDGET_COLOR = "expanded_widget_color";
+
+        /**
+         * Widget Buttons to Use
+         *
+         * @hide
+         */
+        public static final String WIDGET_BUTTONS = "expanded_widget_buttons";
+
+        /**
+        * Notification Power Widget - Custom Brightness Mode
+        * @hide
+        */
+        public static final String EXPANDED_BRIGHTNESS_MODE = "expanded_brightness_mode";
+
+        /**
+        * Notification Power Widget - Custom Network Mode
+        * @hide
+        */
+        public static final String EXPANDED_NETWORK_MODE = "expanded_network_mode";
+
+        /**
+         * Notification Power Widget - Custom LTE Toggle
+         * 1 - lte on, 0 - lte off
+         * @hide
+         */
+        public static final String LTE_MODE = "lte_mode";
+
+        /**
+        * Notification Power Widget - Custom Screen Timeout
+        * @hide
+        */
+        public static final String EXPANDED_SCREENTIMEOUT_MODE = "expanded_screentimeout_mode";
+
+        /**
+        * Notification Power Widget - Custom Ring Mode
+        * @hide
+        */
+        public static final String EXPANDED_RING_MODE = "expanded_ring_mode";
+
+        /**
+        * Notification Power Widget - Custom Torch Mode
+        * @hide
+        */
+        public static final String EXPANDED_FLASH_MODE = "expanded_flash_mode";
+
+        /**
+        * AutoHide CombinedBar on tablets.
+        * @hide
+        */
+        public static final String COMBINED_BAR_AUTO_HIDE = "combined_bar_auto_hide";
+
+        /**
+         * Display style of AM/PM next to clock in status bar
+         * 0: Normal display (Eclair stock)
+         * 1: Small display (Froyo stock)
+         * 2: No display (Gingerbread/ICS stock)
+         * default: 2
+         * @hide
+         */
+        public static final String STATUS_BAR_AM_PM = "status_bar_am_pm";
+
+        /**
+         * Display style of the status bar battery information
+         * 0: Display the stock battery information
+         * 1: Display cm battery percentage implementation / dont show stock icon
+         * 2: Hide the battery information
+         * default: 0
+         * @hide
+         */
+        public static final String STATUS_BAR_BATTERY = "status_bar_battery";
+
+        /**
+         * Whether to show the clock in status bar
+         * of the stock battery icon
+         * 0: don't show the clock
+         * 1: show the clock
+         * default: 1
+         * @hide
+         */
+        public static final String STATUS_BAR_CLOCK = "status_bar_clock";
+
+        /**
+         * Whether to show the signal text or signal bars.
+         * default: 0
+         * 0: show signal bars
+         * 1: show signal text numbers
+         * 2: show signal text numbers w/small dBm appended
+         * @hide
+         */
+        public static final String STATUS_BAR_CM_SIGNAL_TEXT = "status_bar_cm_signal";
+
+         /**
+         * Whether to control brightness from status bar
+         *
+         * @hide
+         */
+        public static final String STATUS_BAR_BRIGHTNESS_TOGGLE = "status_bar_brightness_toggle";
+
+        /**
+         * Whether to use a separate delay for "slide to unlock" and security
+         * lock
+         * @hide
+         */
+        public static final String SCREEN_LOCK_SLIDE_DELAY_TOGGLE = "screen_lock_slide_delay_toggle";
+
+        /**
+         * How many ms to delay before enabling the "slide to unlock" screen
+         * lock when the screen goes off due to timeout
+         * @hide
+         */
+        public static final String SCREEN_LOCK_SLIDE_TIMEOUT_DELAY = "screen_lock_slide_timeout_delay";
+
+        /**
+         * How many ms to delay before enabling the "slide to unlock" screen
+         * lock when the screen is turned off by the user
+         * @hide
+         */
+        public static final String SCREEN_LOCK_SLIDE_SCREENOFF_DELAY = "screen_lock_slide_screenoff_delay";
+
+        /**
+         * Whether to use the custom quick unlock screen control
+         * @hide
+         */
+        public static final String LOCKSCREEN_QUICK_UNLOCK_CONTROL = "lockscreen_quick_unlock_control";
+
+        /**
+         * Boolean value whether to link ringtone and notification volumes
+         * 
+         * @hide
+         */
+        public static final String VOLUME_LINK_NOTIFICATION = "volume_link_notification";
+
+        /**
+         * Whether to unlock the menu key.  The value is boolean (1 or 0).
+         * @hide
+         */
+        public static final String MENU_UNLOCK_SCREEN = "menu_unlock_screen";
+
+        /**
          * Whether to wake the screen with the volume keys, the value is boolean.
          * @hide
          */
         public static final String VOLUME_WAKE_SCREEN = "volume_wake_screen";
+
 
         /**
          * Settings to backup. This is here so that it's in the same place as the settings
@@ -2617,6 +2941,12 @@ public final class Settings {
         public static final String ADB_ENABLED = "adb_enabled";
 
         /**
+         * The TCP/IP port to run ADB on, or -1 for USB
+         * @hide
+         */
+        public static final String ADB_PORT = "adb_port";
+
+        /**
          * Setting to allow mock locations and location provider status to be injected into the
          * LocationManager service for testing purposes during application development.  These
          * locations and status values  override actual location and status information generated
@@ -2819,6 +3149,11 @@ public final class Settings {
          */
         public static final String ASSISTED_GPS_ENABLED = "assisted_gps_enabled";
 
+        /**
+         * External GPS source/device
+         * @hide
+         */
+        public static final String EXTERNAL_GPS_BT_DEVICE = "0";
         /**
          * The Logging ID (a unique 64-bit value) as a hex string.
          * Used as a pseudonymous identifier for logging.
@@ -3331,6 +3666,12 @@ public final class Settings {
          */
         public static final String WIFI_MOBILE_DATA_TRANSITION_WAKELOCK_TIMEOUT_MS =
             "wifi_mobile_data_transition_wakelock_timeout_ms";
+
+        /**
+         * Whether the Wimax should be on.  Only the WiMAX service should touch this.
+         * @hide
+         */
+        public static final String WIMAX_ON = "wimax_on";
 
         /**
          * Whether background data usage is allowed by the user. See
