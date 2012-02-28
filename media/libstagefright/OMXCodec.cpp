@@ -22,11 +22,13 @@ Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
 #define LOG_TAG "OMXCodec"
 #include <utils/Log.h>
 
+#include "include/AACDecoder.h"
 #include "include/AACEncoder.h"
 #include "include/AMRNBEncoder.h"
 #include "include/AMRWBEncoder.h"
 #include "include/AVCEncoder.h"
 #include "include/M4vH263Encoder.h"
+#include "include/MP3Decoder.h"
 
 #include "include/ESDS.h"
 
@@ -127,6 +129,11 @@ const int32_t ColorFormatInfo::preferredColorFormat[] = {
 };
 
 
+#define FACTORY_CREATE(name) \
+static sp<MediaSource> Make##name(const sp<MediaSource> &source) { \
+    return new name(source); \
+}
+
 #define FACTORY_CREATE_ENCODER(name) \
 static sp<MediaSource> Make##name(const sp<MediaSource> &source, const sp<MetaData> &meta) { \
     return new name(source, meta); \
@@ -134,6 +141,8 @@ static sp<MediaSource> Make##name(const sp<MediaSource> &source, const sp<MetaDa
 
 #define FACTORY_REF(name) { #name, Make##name },
 
+FACTORY_CREATE(MP3Decoder)
+FACTORY_CREATE(AACDecoder)
 FACTORY_CREATE_ENCODER(AMRNBEncoder)
 FACTORY_CREATE_ENCODER(AMRWBEncoder)
 FACTORY_CREATE_ENCODER(AACEncoder)
@@ -165,6 +174,27 @@ static sp<MediaSource> InstantiateSoftwareEncoder(
     return NULL;
 }
 
+static sp<MediaSource> InstantiateSoftwareDecoder(
+        const char *name, const sp<MediaSource> &source) {
+    struct FactoryInfo {
+        const char *name;
+        sp<MediaSource> (*CreateFunc)(const sp<MediaSource> &);
+    };
+
+    static const FactoryInfo kFactoryInfo[] = {
+        FACTORY_REF(MP3Decoder)
+        FACTORY_REF(AACDecoder)
+    };
+    for (size_t i = 0;
+         i < sizeof(kFactoryInfo) / sizeof(kFactoryInfo[0]); ++i) {
+        if (!strcmp(name, kFactoryInfo[i].name)) {
+            return (*kFactoryInfo[i].CreateFunc)(source);
+        }
+    }
+
+    return NULL;
+}
+
 #undef FACTORY_REF
 #undef FACTORY_CREATE
 
@@ -173,6 +203,7 @@ static const CodecInfo kDecoderInfo[] = {
     { MEDIA_MIMETYPE_AUDIO_MPEG, "OMX.qcom.audio.decoder.mp3" },
 //    { MEDIA_MIMETYPE_AUDIO_MPEG, "OMX.TI.MP3.decode" },
     { MEDIA_MIMETYPE_AUDIO_MPEG, "OMX.google.mp3.decoder" },
+    { MEDIA_MIMETYPE_AUDIO_MPEG, "MP3Decoder" },
     { MEDIA_MIMETYPE_AUDIO_MPEG_LAYER_II, "OMX.Nvidia.mp2.decoder" },
 //    { MEDIA_MIMETYPE_AUDIO_AMR_NB, "OMX.TI.AMR.decode" },
 //    { MEDIA_MIMETYPE_AUDIO_AMR_NB, "OMX.Nvidia.amr.decoder" },
@@ -186,6 +217,7 @@ static const CodecInfo kDecoderInfo[] = {
 //    { MEDIA_MIMETYPE_AUDIO_AAC, "OMX.Nvidia.aac.decoder" },
     { MEDIA_MIMETYPE_AUDIO_AAC, "OMX.TI.AAC.decode" },
     { MEDIA_MIMETYPE_AUDIO_AAC, "OMX.google.aac.decoder" },
+    { MEDIA_MIMETYPE_AUDIO_AAC, "AACDecoder" },
     { MEDIA_MIMETYPE_AUDIO_G711_ALAW, "OMX.google.g711.alaw.decoder" },
     { MEDIA_MIMETYPE_AUDIO_G711_MLAW, "OMX.google.g711.mlaw.decoder" },
     { MEDIA_MIMETYPE_VIDEO_MPEG4, "OMX.TI.DUCATI1.VIDEO.DECODER" },
@@ -342,7 +374,8 @@ static void InitOMXParams(T *params) {
 }
 
 static bool IsSoftwareCodec(const char *componentName) {
-    if (!strncmp("OMX.google.", componentName, 11)) {
+    if (!strncmp("OMX.google.", componentName, 11)
+	    || !strncmp("OMX.PV.", componentName, 7)) {
         return true;
     }
 
@@ -640,19 +673,32 @@ sp<MediaSource> OMXCodec::Create(
             componentName = tmp.c_str();
         }
 
+        sp<MediaSource> softwareCodec;
         if (createEncoder) {
-            sp<MediaSource> softwareCodec =
-                InstantiateSoftwareEncoder(componentName, source, meta);
-
-            if (softwareCodec != NULL) {
-                LOGV("Successfully allocated software codec '%s'", componentName);
-
-                return softwareCodec;
-            }
+            softwareCodec = InstantiateSoftwareEncoder(componentName, source, meta);
+        } else {
+            softwareCodec = InstantiateSoftwareDecoder(componentName, source);
+		}
+        if (softwareCodec != NULL) {
+            LOGE("Successfully allocated software codec '%s'", componentName);
+            return softwareCodec;
         }
 
         LOGE("Attempting to allocate OMX node '%s'", componentName);
 
+#if USE_AAC_HW_DEC
+        int aacformattype = 0;
+        int aacLTPType = 0;
+        sp<MetaData> metadata = source->getFormat();
+        metadata->findInt32(kkeyAacFormatAdif, &aacformattype);
+        metadata->findInt32(kkeyAacFormatLtp, &aacLTPType);
+
+        if ((aacformattype == true)|| aacLTPType == true)  {
+            LOGE("This is ADIF/LTP clip , so using sw decoder ");
+            componentName= "OMX.google.aac.decoder";
+            componentNameBase = "OMX.google.aac.decoder";
+        }
+#endif
         uint32_t quirks = getComponentQuirks(componentNameBase, createEncoder);
         if(quirks & kRequiresWMAProComponent)
         {
@@ -671,18 +717,7 @@ sp<MediaSource> OMXCodec::Create(
               componentName= "OMX.qcom.audio.decoder.wmaLossLess";
            }
         }
-#if USE_AAC_HW_DEC
-        int aacformattype = 0;
-        int aacLTPType = 0;
-        sp<MetaData> metadata = source->getFormat();
-        metadata->findInt32(kkeyAacFormatAdif, &aacformattype);
-        metadata->findInt32(kkeyAacFormatLtp, &aacLTPType);
 
-        if ((aacformattype == true)|| aacLTPType == true)  {
-            LOGE("This is ADIF/LTP clip , so using sw decoder ");
-            componentName= "OMX.google.aac.decoder";
-        }
-#endif
         if (!createEncoder
                 && (quirks & kOutputBuffersAreUnreadable)
                 && (flags & kClientNeedsFramebuffer)) {
@@ -1332,7 +1367,8 @@ status_t OMXCodec::isColorFormatSupported(
 void OMXCodec::setVideoInputFormat(
         const char *mime, const sp<MetaData>& meta) {
 
-    int32_t width, height, frameRate, bitRate, stride, sliceHeight, hfr;
+    int32_t width, height, frameRate, bitRate, stride, sliceHeight;
+    int32_t hfr = 0;
 
     char value[PROPERTY_VALUE_MAX];
     if ( property_get("encoder.video.bitrate", value, 0) > 0 && atoi(value) > 0){
@@ -1346,7 +1382,7 @@ void OMXCodec::setVideoInputFormat(
     success = success && meta->findInt32(kKeyBitRate, &bitRate);
     success = success && meta->findInt32(kKeyStride, &stride);
     success = success && meta->findInt32(kKeySliceHeight, &sliceHeight);
-    success = success && meta->findInt32(kKeyHFR, &hfr);
+    meta->findInt32(kKeyHFR, &hfr);
     CHECK(success);
     CHECK(stride != 0);
 
@@ -1644,11 +1680,12 @@ status_t OMXCodec::getVideoProfileLevel(
 }
 
 status_t OMXCodec::setupH263EncoderParameters(const sp<MetaData>& meta) {
-    int32_t iFramesInterval, frameRate, bitRate, hfr;
+    int32_t iFramesInterval, frameRate, bitRate;
+    int32_t hfr = 0;
     bool success = meta->findInt32(kKeyBitRate, &bitRate);
     success = success && meta->findInt32(kKeyFrameRate, &frameRate);
     success = success && meta->findInt32(kKeyIFramesInterval, &iFramesInterval);
-    success = success && meta->findInt32(kKeyHFR, &hfr);
+    meta->findInt32(kKeyHFR, &hfr);
     CHECK(success);
     OMX_VIDEO_PARAM_H263TYPE h263type;
     InitOMXParams(&h263type);
@@ -1698,11 +1735,12 @@ status_t OMXCodec::setupMPEG2EncoderParameters(const sp<MetaData>& meta) {
 }
 
 status_t OMXCodec::setupMPEG4EncoderParameters(const sp<MetaData>& meta) {
-    int32_t iFramesInterval, frameRate, bitRate, hfr;
+    int32_t iFramesInterval, frameRate, bitRate;
+    int32_t hfr = 0;
     bool success = meta->findInt32(kKeyBitRate, &bitRate);
     success = success && meta->findInt32(kKeyFrameRate, &frameRate);
     success = success && meta->findInt32(kKeyIFramesInterval, &iFramesInterval);
-    success = success && meta->findInt32(kKeyHFR, &hfr);
+    meta->findInt32(kKeyHFR, &hfr);
     CHECK(success);
     OMX_VIDEO_PARAM_MPEG4TYPE mpeg4type;
     InitOMXParams(&mpeg4type);
@@ -1757,11 +1795,12 @@ status_t OMXCodec::setupMPEG4EncoderParameters(const sp<MetaData>& meta) {
 }
 
 status_t OMXCodec::setupAVCEncoderParameters(const sp<MetaData>& meta) {
-    int32_t iFramesInterval, frameRate, bitRate, hfr;
+    int32_t iFramesInterval, frameRate, bitRate;
+    int32_t hfr = 0;
     bool success = meta->findInt32(kKeyBitRate, &bitRate);
     success = success && meta->findInt32(kKeyFrameRate, &frameRate);
     success = success && meta->findInt32(kKeyIFramesInterval, &iFramesInterval);
-    success = success && meta->findInt32(kKeyHFR, &hfr);
+    meta->findInt32(kKeyHFR, &hfr);
     CHECK(success);
 
     OMX_VIDEO_PARAM_AVCTYPE h264type;
@@ -2026,6 +2065,7 @@ OMXCodec::OMXCodec(
       mSPSParsed(false),
       bInvalidState(false),
       latenessUs(0),
+      mInterlaceFrame(0),
       LC_level(0),
       mThumbnailMode(false),
       m3DVideoDetected(false),
@@ -2160,6 +2200,8 @@ status_t OMXCodec::init() {
 
     err = allocateBuffers();
     if (err != (status_t)OK) {
+        CODEC_LOGE("Allocate Buffer failed - error = %d", err);
+        setState(ERROR);
         return err;
     }
 
@@ -4017,9 +4059,14 @@ bool OMXCodec::drainInputBuffer(BufferInfo *info) {
 
     OMX_U32 flags = OMX_BUFFERFLAG_ENDOFFRAME;
 
+    if(mInterlaceFormatDetected) {
+      mInterlaceFrame++;
+    }
+
     if (signalEOS) {
         flags |= OMX_BUFFERFLAG_EOS;
-    } else if (mThumbnailMode) {
+    } else if ((mThumbnailMode && !mInterlaceFormatDetected)
+               || (mThumbnailMode && (mInterlaceFrame >= 2))) {
         // Because we don't get an EOS after getting the first frame, we
         // need to notify the component with OMX_BUFFERFLAG_EOS, set
         // mNoMoreOutputData to false so fillOutputBuffer gets called on
@@ -4153,6 +4200,12 @@ status_t OMXCodec::waitForBufferFilled_l() {
         return mBufferFilled.wait(mLock);
     }
     status_t err = mBufferFilled.waitRelative(mLock, kBufferFilledEventTimeOutNs);
+    if ((err == -ETIMEDOUT) && (mPaused == true)){
+        // When the audio playback is paused, the fill buffer maybe timed out
+        // if input data is not available to decode. Hence, considering the
+        // timed out as a valid case.
+        err = OK;
+    }
     if (err != OK) {
         CODEC_LOGE("Timed out waiting for output buffers: %d/%d",
             countBuffersWeOwn(mPortBuffers[kPortIndexInput]),

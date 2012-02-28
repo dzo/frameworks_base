@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2009 The Android Open Source Project
- * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -503,6 +503,11 @@ void LPAPlayer::pause(bool playPendingSamples) {
             if (!bIsA2DPEnabled) {
                 LOGV("LPAPlayer::Pause - Pause driver");
                 struct pcm * local_handle = (struct pcm *)handle;
+                pthread_mutex_lock(&pause_mutex);
+                if (local_handle->start != 1) {
+                    pthread_cond_wait(&pause_cv, &pause_mutex);
+                }
+                pthread_mutex_unlock(&pause_mutex);
                 if (ioctl(local_handle->fd, SNDRV_PCM_IOCTL_PAUSE,1) < 0) {
                     LOGE("Audio Pause failed");
                 }
@@ -628,16 +633,7 @@ void LPAPlayer::reset() {
 
     requestAndWaitForA2DPNotificationThreadExit();
 
-    // Close the audiosink after all the threads exited to make sure
-    // there is no thread writing data to audio sink or applying effect
-    if (bIsA2DPEnabled) {
-        mAudioSink->close();
-    } else {
-        mAudioSink->closeSession();
-    }
 
-
-    mAudioSink.clear();
 
     // Make sure to release any buffer we hold onto so that the
     // source is able to stop().
@@ -665,8 +661,25 @@ void LPAPlayer::reset() {
 
     pmemBufferDeAlloc();
     LOGE("Buffer Deallocation complete! Closing pcm handle");
+
+    if (!isPaused && !bIsA2DPEnabled) {
+        if (ioctl(local_handle->fd, SNDRV_PCM_IOCTL_PAUSE,1) < 0) {
+            LOGE("Audio Pause failed");
+        }
+    }
+    local_handle->start = 0;
+    pcm_prepare(local_handle);
     pcm_close(local_handle);
     handle = (void*)local_handle;
+
+        // Close the audiosink after all the threads exited to make sure
+    // there is no thread writing data to audio sink or applying effect
+    if (bIsA2DPEnabled) {
+        mAudioSink->close();
+    } else {
+        mAudioSink->closeSession();
+    }
+    mAudioSink.clear();
 
     LOGV("reset() after pmemBuffersRequestQueue.size() = %d, pmemBuffersResponseQueue.size() = %d ",pmemBuffersRequestQueue.size(),pmemBuffersResponseQueue.size());
 
@@ -840,6 +853,9 @@ void LPAPlayer::decoderThreadEntry() {
                             write(efd, &writeValue, sizeof(uint64_t));
                         }
                         LOGV("PCM write complete");
+                        pthread_mutex_lock(&pause_mutex);
+                        pthread_cond_signal(&pause_cv);
+                        pthread_mutex_unlock(&pause_mutex);
                     }
                 }
             }
@@ -1308,11 +1324,13 @@ void LPAPlayer::createThreads() {
     pthread_mutex_init(&effect_mutex, NULL);
     pthread_mutex_init(&apply_effect_mutex, NULL);
     pthread_mutex_init(&a2dp_notification_mutex, NULL);
+    pthread_mutex_init(&pause_mutex,NULL);
 
     pthread_cond_init (&event_cv, NULL);
     pthread_cond_init (&decoder_cv, NULL);
     pthread_cond_init (&a2dp_cv, NULL);
     pthread_cond_init (&a2dp_notification_cv, NULL);
+    pthread_cond_init (&pause_cv, NULL);
 
     // Create 4 threads Effect, decoder, event and A2dp
     pthread_attr_t attr;

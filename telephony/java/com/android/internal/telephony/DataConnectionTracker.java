@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006 The Android Open Source Project
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012 Code Aurora Forum. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,6 +55,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -144,6 +146,7 @@ public abstract class DataConnectionTracker extends Handler {
     protected static final int EVENT_READ_MODEM_PROFILES = BASE + 35;
     protected static final int EVENT_GET_DATA_CALL_PROFILE_DONE = BASE + 36;
     protected static final int EVENT_MODEM_DATA_PROFILE_READY = BASE + 37;
+    protected static final int EVENT_RAT_CHANGED = BASE + 38;
 
     /***** Constants *****/
 
@@ -160,6 +163,14 @@ public abstract class DataConnectionTracker extends Handler {
 
     public static final int DISABLED = 0;
     public static final int ENABLED = 1;
+
+    /**
+     * Constants for the data connection activity:
+     * physical link down/up
+     */
+    protected static final int DATA_CONNECTION_ACTIVE_PH_LINK_INACTIVE = 0;
+    protected static final int DATA_CONNECTION_ACTIVE_PH_LINK_DOWN = 1;
+    protected static final int DATA_CONNECTION_ACTIVE_PH_LINK_UP = 2;
 
     public static final String APN_TYPE_KEY = "apnType";
 
@@ -311,17 +322,17 @@ public abstract class DataConnectionTracker extends Handler {
     protected ConcurrentHashMap<String, ApnContext> mApnContexts;
 
     /** Priorities for APN_TYPEs. package level access, used by ApnContext */
-    static ConcurrentHashMap<String, Integer> mApnPriorities =
-        new ConcurrentHashMap<String, Integer>() {
+    static LinkedHashMap<String, Integer> mApnPriorities =
+        new LinkedHashMap<String, Integer>() {
             {
-                put(Phone.APN_TYPE_DEFAULT, 0);
-                put(Phone.APN_TYPE_MMS,     1);
-                put(Phone.APN_TYPE_SUPL,    2);
-                put(Phone.APN_TYPE_DUN,     3);
-                put(Phone.APN_TYPE_HIPRI,   4);
-                put(Phone.APN_TYPE_FOTA,    5);
-                put(Phone.APN_TYPE_IMS,     6);
                 put(Phone.APN_TYPE_CBS,     7);
+                put(Phone.APN_TYPE_IMS,     6);
+                put(Phone.APN_TYPE_FOTA,    5);
+                put(Phone.APN_TYPE_HIPRI,   4);
+                put(Phone.APN_TYPE_DUN,     3);
+                put(Phone.APN_TYPE_SUPL,    2);
+                put(Phone.APN_TYPE_MMS,     1);
+                put(Phone.APN_TYPE_DEFAULT, 0);
             }
         };
 
@@ -507,7 +518,11 @@ public abstract class DataConnectionTracker extends Handler {
             msg.obj = reason;
             sendMessage(msg);
         }
-        sendMessage(obtainMessage(EVENT_TRY_SETUP_DATA));
+
+        int partialRetry = 0;
+        if (reason != null && reason.equals(Phone.REASON_DUALIP_PARTIAL_FAILURE_RETRY))
+            partialRetry = Phone.DUALIP_PARTIAL_RETRY;
+        sendMessage(obtainMessage(EVENT_TRY_SETUP_DATA, partialRetry, 0, null));
     }
 
     protected void onActionIntentDataStallAlarm(Intent intent) {
@@ -681,6 +696,7 @@ public abstract class DataConnectionTracker extends Handler {
     protected abstract boolean disconnectOneLowerPriorityCall(String apnType);
     protected abstract void setDataReadinessChecks(
             boolean checkConnectivity, boolean checkSubscription, boolean tryDataCalls);
+    protected abstract void clearTetheredStateOnStatus();
 
     protected void onDataStallAlarm(int tag) {
         loge("onDataStallAlarm: not impleted tag=" + tag);
@@ -1289,9 +1305,9 @@ public abstract class DataConnectionTracker extends Handler {
          *  Get the prioritized enumerated APN Types and retrieve the APN
          *  context associated with it from the list of APN contexts
          */
-        for (Enumeration<String> apnTypes = mApnPriorities.keys();
-                apnTypes.hasMoreElements();) {
-            ApnContext apnContext = mApnContexts.get(apnTypes.nextElement());
+        Iterator apnTypes = mApnPriorities.keySet().iterator();
+        while(apnTypes.hasNext()) {
+            ApnContext apnContext = mApnContexts.get(apnTypes.next());
             if (apnContext != null)
                 sortedList.add(apnContext);
         }
@@ -1336,10 +1352,7 @@ public abstract class DataConnectionTracker extends Handler {
 
         switch (mode) {
         case RILConstants.RIL_TETHERED_MODE_ON:
-            /*
-             * Indicates that an internal data call was created in the modem. Do
-             * nothing, just information for now
-             */
+            // Indicates that an internal data call was created in the modem.
             if (DBG)
                 log("Unsol Indication: RIL_TETHERED_MODE_ON");
             break;
@@ -1352,6 +1365,7 @@ public abstract class DataConnectionTracker extends Handler {
              * attempt to bring up all data calls
              */
             resetAllRetryCounts();
+            clearTetheredStateOnStatus();
             sendMessage(obtainMessage(EVENT_TRY_SETUP_DATA, 0, 0,
                     Phone.REASON_TETHERED_MODE_STATE_CHANGED));
             break;
