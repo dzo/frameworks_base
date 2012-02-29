@@ -1676,6 +1676,7 @@ public class Camera {
         private static final String KEY_MAX_NUM_DETECTED_FACES_SW = "max-num-detected-faces-sw";
         private static final String KEY_RECORDING_HINT = "recording-hint";
         private static final String KEY_VIDEO_SNAPSHOT_SUPPORTED = "video-snapshot-supported";
+        private static final String KEY_FULL_VIDEO_SNAP_SUPPORTED = "full-video-snap-supported";
         private static final String KEY_VIDEO_STABILIZATION = "video-stabilization";
         private static final String KEY_VIDEO_STABILIZATION_SUPPORTED = "video-stabilization-supported";
         private static final String KEY_SHARPNESS = "sharpness";
@@ -1763,11 +1764,18 @@ public class Camera {
         public static final String ZSL_ON = "on";
         public static final String ZSL_OFF = "off";
 
+        // Values for HDR Bracketing settings.
+        public static final String AE_BRACKET_HDR_OFF = "Off";
+        public static final String AE_BRACKET_HDR = "HDR";
+        public static final String AE_BRACKET = "AE-Bracket";
+
         // Values for HFR settings.
         public static final String VIDEO_HFR_OFF = "off";
         public static final String VIDEO_HFR_2X = "60";
         public static final String VIDEO_HFR_3X = "90";
         public static final String VIDEO_HFR_4X = "120";
+
+        public static final String KEY_AE_BRACKET_HDR = "ae-bracket-hdr";
 
         // Values for flash mode settings.
         /**
@@ -3274,6 +3282,18 @@ public class Camera {
         }
 
         /**
+         * Gets the current hdr bracketing mode setting.
+         *
+         * @return current hdr bracketing mode.
+         * @see #KEY_AE_BRACKET_OFF
+         * @see #KEY_AE_BRACKET_HDR
+         * @see #KEY_AE_BRACKET_BRACKATING
+         */
+        public String getAEBracket() {
+            return get(KEY_AE_BRACKET_HDR);
+        }
+
+        /**
          * Sets the flash mode.
          *
          * @param value flash mode.
@@ -3281,6 +3301,15 @@ public class Camera {
          */
         public void setFlashMode(String value) {
             set(KEY_FLASH_MODE, value);
+        }
+
+        /**
+         * Set HDR-Bracketing Level
+         *
+         * @param value HDR-Bracketing
+         */
+        public void setAEBracket(String value){
+            set(KEY_AE_BRACKET_HDR, value);
         }
 
         /**
@@ -4177,6 +4206,14 @@ public class Camera {
          */
         public boolean isVideoSnapshotSupported() {
             String str = get(KEY_VIDEO_SNAPSHOT_SUPPORTED);
+            return TRUE.equals(str);
+        }
+
+        /** 
+         * @return true if full size video snapshot is supported. 
+         */ 
+        public boolean isFullsizeVideoSnapSupported() {
+            String str = get(KEY_FULL_VIDEO_SNAP_SUPPORTED);
             return TRUE.equals(str);
         }
 

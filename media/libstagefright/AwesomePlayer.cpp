@@ -39,7 +39,11 @@
 #include <media/stagefright/foundation/hexdump.h>
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/AudioPlayer.h>
+
+#ifndef NON_QCOM_TARGET
 #include <media/stagefright/LPAPlayer.h>
+#endif
+
 #include <media/stagefright/DataSource.h>
 #include <media/stagefright/FileSource.h>
 #include <media/stagefright/MediaBuffer.h>
@@ -239,6 +243,7 @@ AwesomePlayer::AwesomePlayer()
         mStats.mLastFrameUs = 0;
         mStats.mStatisticsFrames = 0;
         mStats.mFPSSumUs = 0;
+        mStats.mTotalTime = 0;
     }
     reset();
 }
@@ -252,6 +257,7 @@ AwesomePlayer::~AwesomePlayer() {
         Mutex::Autolock autoLock(mStatsLock);
         LOGW("=========================================================");
         LOGW("Average Frames Per Second: %.4f", mStats.mFPSSumUs/((double)mStats.mStatisticsFrames));
+        LOGW("Total Frames / Total Time: %.4f", ((double)mStats.mTotalFrames*1E6)/((double)mStats.mTotalTime));
         LOGW("========================================================");
     }
 
@@ -926,11 +932,9 @@ status_t AwesomePlayer::play_l() {
                  */
                 if (!success)
                     durationUs = 0;
-
-                LOGV("LPAPlayer::getObjectsAlive() %d",LPAPlayer::objectsAlive);
                 int32_t isFormatAdif = 0;
                 format->findInt32(kkeyAacFormatAdif, &isFormatAdif);
-
+#ifndef NON_QCOM_TARGET
                 char lpaDecode[128];
                 property_get("lpa.decode",lpaDecode,"0");
                 if(strcmp("true",lpaDecode) == 0)
@@ -948,6 +952,7 @@ status_t AwesomePlayer::play_l() {
                         }
                     }
                 }
+#endif
                 if(mAudioPlayer == NULL) {
                     LOGE("AudioPlayer created, Non-LPA mode mime %s duration %d\n", mime, durationUs);
                     mAudioPlayer = new AudioPlayer(mAudioSink, this);
@@ -1189,7 +1194,12 @@ status_t AwesomePlayer::pause_l(bool at_eos) {
     if (!(mFlags & PLAYING)) {
         return OK;
     }
-
+    // handle any EOS condition checks first in case
+    // resume takes place at the same spot
+    while(mAudioStatusEventPending){
+        LOGV("waiting on pending audio status event to finish");
+        mAudioStatusCondition.wait(mLock);
+    }
     cancelPlayerEvents(true /* keepNotifications */);
 
     if (mAudioPlayer != NULL && (mFlags & AUDIO_RUNNING)) {
@@ -1482,10 +1492,38 @@ status_t AwesomePlayer::initAudioDecoder() {
     if (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_RAW)) {
         mAudioSource = mAudioTrack;
     } else {
+        // For LPA Playback use the decoder without OMX layer
+        char *matchComponentName = NULL;
+#ifndef NON_QCOM_TARGET
+        char lpaDecode[128];
+        property_get("lpa.decode",lpaDecode,"0");
+        if(strcmp("true",lpaDecode) == 0 && mVideoSource == NULL) {
+            const char *mime;
+            bool success = meta->findCString(kKeyMIMEType, &mime);
+            CHECK(success);
+            int64_t durationUs;
+            success = meta->findInt64(kKeyDuration, &durationUs);
+            if (!success) durationUs = 0;
+            int32_t isFormatAdif = 0;
+            meta->findInt32(kkeyAacFormatAdif, &isFormatAdif);
+
+            if ( (durationUs > 60000000) && !isFormatAdif && LPAPlayer::objectsAlive == 0) {
+                if(!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_MPEG)) {
+                    LOGV("matchComponentName is set to MP3Decoder");
+                    matchComponentName= "MP3Decoder";
+                }
+                if(!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_AAC)) {
+                    LOGV("matchComponentName is set to AACDecoder");
+                    matchComponentName= "AACDecoder";
+                }
+            }
+        }
+#endif
         mAudioSource = OMXCodec::Create(
                 mClient.interface(), mAudioTrack->getFormat(),
                 false, // createEncoder
-                mAudioTrack);
+                mAudioTrack,
+                matchComponentName);
     }
 
     if (mAudioSource != NULL) {
@@ -1691,6 +1729,24 @@ void AwesomePlayer::onVideoEvent() {
         return;
     }
     mVideoEventPending = false;
+
+    if(mStatistics) {
+        Mutex::Autolock autoLock(mStatsLock);
+        int64_t now = getTimeOfDayUs(),
+                diff = now - mStats.mLastFrameUs;
+        if (diff > 50000) {
+             float fps =((mStats.mTotalFrames - mStats.mLastFrame) * 1E6)/diff;
+             LOGW("Frames per second: %.4f", fps);
+             if(mStats.mLastFrameUs != 0){
+                 ++mStats.mStatisticsFrames;
+                 mStats.mTotalTime+=diff;
+             }
+             mStats.mFPSSumUs += fps;
+             mStats.mLastFrameUs = now;
+             mStats.mLastFrame = mStats.mTotalFrames;
+         }
+    }
+
 
     if (mSeeking != NO_SEEK) {
         if (mVideoBuffer) {
@@ -1956,18 +2012,6 @@ void AwesomePlayer::onVideoEvent() {
             logOnTime(timeUs,nowUs,latenessUs);
             mStats.mTotalFrames++;
             mStats.mConsecutiveFramesDropped = 0;
-
-            int64_t now = getTimeOfDayUs(),
-            diff = now - mStats.mLastFrameUs;
-            if (diff > 50000) {
-                float fps =((mStats.mTotalFrames - mStats.mLastFrame) * 1E6)/diff;
-                LOGW("Frames per second: %.4f", fps);
-                if(mStats.mLastFrameUs != 0)
-                    ++mStats.mStatisticsFrames;
-                mStats.mFPSSumUs += fps;
-                mStats.mLastFrameUs = now;
-                mStats.mLastFrame = mStats.mTotalFrames;
-            }
         }
     }
 
@@ -2058,6 +2102,7 @@ void AwesomePlayer::onCheckAudioStatus() {
         modifyFlags(FIRST_FRAME, SET);
         postStreamDoneEvent_l(finalStatus);
     }
+    mAudioStatusCondition.signal();
 }
 
 status_t AwesomePlayer::prepare() {
@@ -2558,7 +2603,7 @@ void AwesomePlayer::logStatistics() {
     if (mFlags & LOOPING) {LOGW("Looping Update");}
     LOGW("Mime Type: %s",mime);
     LOGW("Number of frames dropped: %lld",mStats.mNumVideoFramesDropped);
-    LOGW("Number of frames rendered: %u",mStats.mTotalFrames);
+    LOGW("Number of frames rendered: %llu",mStats.mTotalFrames);
     LOGW("=====================================================");
 }
 

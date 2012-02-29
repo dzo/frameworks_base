@@ -1379,11 +1379,15 @@ public class SIMRecords extends IccRecords {
         mFh.loadEFLinearFixed(EF_PNN, 1, obtainMessage(EVENT_GET_PNN_DONE));
         recordsToLoad++;
 
-        mFh.loadEFLinearFixedAll(EF_OPL, obtainMessage(EVENT_GET_ALL_OPL_RECORDS_DONE));
-        recordsToLoad++;
+        if(SystemProperties.getBoolean("persist.opl.enabled", true)) {
+            mFh.loadEFLinearFixedAll(EF_OPL, obtainMessage(EVENT_GET_ALL_OPL_RECORDS_DONE));
+            recordsToLoad++;
+        }
 
-        mFh.loadEFLinearFixedAll(EF_PNN, obtainMessage(EVENT_GET_ALL_PNN_RECORDS_DONE));
-        recordsToLoad++;
+        if(SystemProperties.getBoolean("persist.pnn.enabled", true)) {
+            mFh.loadEFLinearFixedAll(EF_PNN, obtainMessage(EVENT_GET_ALL_PNN_RECORDS_DONE));
+            recordsToLoad++;
+        }
 
         mFh.loadEFTransparent(EF_SST, obtainMessage(EVENT_GET_SST_DONE));
         recordsToLoad++;

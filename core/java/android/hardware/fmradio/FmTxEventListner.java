@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011,2012, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,7 +29,7 @@
 package android.hardware.fmradio;
 
 import android.util.Log;
-
+import android.hardware.fmradio.FmTransceiver;
 
 class FmTxEventListner {
 
@@ -39,6 +39,7 @@ class FmTxEventListner {
     private final int TUNE_EVENT = 1;                   /*Tune completion event*/
     private final int TXRDSDAT_EVENT = 16;               /*RDS Group available event*/
     private final int TXRDSDONE_EVENT = 17;              /*RDS group complete event */
+    private final int RADIO_DISABLED = 18;
 
 
     private Thread mThread;
@@ -74,6 +75,10 @@ class FmTxEventListner {
                             Log.d(TAG, "Got TXRDSDONE_EVENT");
                                 cb.onContRDSGroupsComplete();
                             break;
+                         case RADIO_DISABLED:
+                            Log.d(TAG, "Got RADIO_DISABLED");
+                                cb.onRadioDisabled();
+                            break;
                          default:
                             Log.d(TAG, "Unknown event");
                             break;
@@ -91,6 +96,7 @@ class FmTxEventListner {
     }
 
     public void stopListener(){
+        FmTransceiver.release("/dev/radio0");
         //
         Log.d(TAG, "Thread Stopped\n");
         //Thread stop is deprecate API

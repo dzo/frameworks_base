@@ -119,15 +119,32 @@ const char CameraParameters::KEY_MAX_NUM_DETECTED_FACES_HW[] = "max-num-detected
 const char CameraParameters::KEY_MAX_NUM_DETECTED_FACES_SW[] = "max-num-detected-faces-sw";
 const char CameraParameters::KEY_RECORDING_HINT[] = "recording-hint";
 const char CameraParameters::KEY_VIDEO_SNAPSHOT_SUPPORTED[] = "video-snapshot-supported";
+const char CameraParameters::KEY_FULL_VIDEO_SNAP_SUPPORTED[] = "full-video-snap-supported";
 const char CameraParameters::KEY_VIDEO_STABILIZATION[] = "video-stabilization";
 const char CameraParameters::KEY_VIDEO_STABILIZATION_SUPPORTED[] = "video-stabilization-supported";
 const char CameraParameters::KEY_ZSL[] = "zsl";
 const char CameraParameters::KEY_SUPPORTED_ZSL_MODES[] = "zsl-values";
 const char CameraParameters::KEY_CAMERA_MODE[] = "camera-mode";
+const char CameraParameters::KEY_AE_BRACKET_HDR[] = "ae-bracket-hdr";
+/*only effective when KEY_AE_BRACKET_HDR set to ae_bracketing*/
+//const char CameraParameters::KEY_AE_BRACKET_SETTING_KEY[] = "ae-bracket-setting";
 
 const char CameraParameters::TRUE[] = "true";
 const char CameraParameters::FALSE[] = "false";
 const char CameraParameters::FOCUS_DISTANCE_INFINITY[] = "Infinity";
+
+const char CameraParameters::KEY_CAF[] = "continuous-af";
+const char CameraParameters::KEY_SUPPORTED_CAF[] = "continuous-af-values";
+const char CameraParameters::FOCUS_MODE_CONTINUOUS_CAMERA[] = "continuous-camera";
+const char CameraParameters::KEY_HDR_SAVING_MODE[] = "hdr-saving-mode";
+const char CameraParameters::HDR_SETTING_MODE_OFF[] = "hdr-setting-mode-off";
+const char CameraParameters::HDR_SETTING_MODE_ON[] = "hdr-setting-mode-on";
+const char CameraParameters::KEY_HDR[] = "hdr";
+const char CameraParameters::KEY_SUPPORTED_HDR[] = "hdr-values";
+const char CameraParameters::HDR_MODE_ON[] = "hdr-mode-on";
+const char CameraParameters::HDR_MODE_OFF[] = "hdr-mode-off";
+const char CameraParameters::CAF_OFF[] = "caf-off";
+const char CameraParameters::CAF_ON[] = "caf-on";
 
 // Values for white balance settings.
 const char CameraParameters::WHITE_BALANCE_AUTO[] = "auto";
@@ -299,6 +316,11 @@ const char CameraParameters::HDR_DISABLE[] = "disable";
 const char CameraParameters::ZSL_OFF[] = "off";
 const char CameraParameters::ZSL_ON[] = "on";
 
+// Values for HDR Bracketing settings.
+const char CameraParameters::AE_BRACKET_HDR_OFF[] = "Off";
+const char CameraParameters::AE_BRACKET_HDR[] = "HDR";
+const char CameraParameters::AE_BRACKET[] = "AE-Bracket";
+
 static const char* portrait = "portrait";
 static const char* landscape = "landscape";
 
@@ -383,6 +405,7 @@ void CameraParameters::unflatten(const String8 &params)
 
 void CameraParameters::set(const char *key, const char *value)
 {
+//    LOGI("CameraParameters::set %s %s",key,value);
     // XXX i think i can do this with strspn()
     if (strchr(key, '=') || strchr(key, ';')) {
         //XXX LOGE("Key \"%s\"contains invalid character (= or ;)", key);
@@ -416,6 +439,7 @@ const char *CameraParameters::get(const char *key) const
     String8 v = mMap.valueFor(String8(key));
     if (v.length() == 0)
         return 0;
+//    LOGI("CameraParameters::got %s=%s",key,v.string());
     return v.string();
 }
 
@@ -736,7 +760,7 @@ status_t CameraParameters::dump(int fd, const Vector<String16>& args) const
         k = mMap.keyAt(i);
         v = mMap.valueAt(i);
         snprintf(buffer, 255, "\t%s: %s\n", k.string(), v.string());
-        result.append(buffer);
+       result.append(buffer);
     }
     write(fd, result.string(), result.size());
     return NO_ERROR;

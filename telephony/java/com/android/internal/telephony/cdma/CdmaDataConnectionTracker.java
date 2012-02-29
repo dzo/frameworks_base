@@ -38,6 +38,7 @@ import com.android.internal.telephony.CommandsInterface;
 import com.android.internal.telephony.DataCallState;
 import com.android.internal.telephony.DataConnection.FailCause;
 import com.android.internal.telephony.UiccManager.AppFamily;
+import com.android.internal.telephony.ApnContext;
 import com.android.internal.telephony.DataConnection;
 import com.android.internal.telephony.DataConnectionAc;
 import com.android.internal.telephony.DataConnectionTracker;
@@ -82,14 +83,6 @@ public class CdmaDataConnectionTracker extends DataConnectionTracker {
     private static final String INTENT_DATA_STALL_ALARM =
         "com.android.internal.telephony.cdma-data-stall";
 
-
-    /**
-     * Constants for the data connection activity:
-     * physical link down/up
-     */
-     private static final int DATA_CONNECTION_ACTIVE_PH_LINK_INACTIVE = 0;
-     private static final int DATA_CONNECTION_ACTIVE_PH_LINK_DOWN = 1;
-     private static final int DATA_CONNECTION_ACTIVE_PH_LINK_UP = 2;
 
     /* Constructor */
 
@@ -878,6 +871,7 @@ public class CdmaDataConnectionTracker extends DataConnectionTracker {
 
     protected void onDataStateChanged(AsyncResult ar) {
         ArrayList<DataCallState> dataCallStates = (ArrayList<DataCallState>)(ar.result);
+        DataCallState dcState = null;
 
         if (ar.exception != null) {
             // This is probably "radio not available" or something
@@ -894,9 +888,17 @@ public class CdmaDataConnectionTracker extends DataConnectionTracker {
             // the DATA_CALL_LIST array
             for (int index = 0; index < dataCallStates.size(); index++) {
                 connectionState = dataCallStates.get(index).active;
+                dcState = dataCallStates.get(index);
                 if (connectionState != DATA_CONNECTION_ACTIVE_PH_LINK_INACTIVE) {
                     isActiveOrDormantConnectionPresent = true;
                     break;
+                } else {
+                    /* Check if this was brought down due to a tethered call */
+                    if (FailCause.fromInt(dcState.status) == FailCause.TETHERED_CALL_ACTIVE) {
+                        // Mark apn as busy in a tethered call
+                        if (DBG) log("setTetheredCallOn for apn:" + mActiveApn.toString());
+                        mActiveApn.setTetheredCallOn(true);
+                    }
                 }
             }
 
@@ -1042,6 +1044,12 @@ public class CdmaDataConnectionTracker extends DataConnectionTracker {
     @Override
     protected DataConnection getActiveDataConnection(String type) {
         return mState == State.CONNECTED ? mPendingDataConnection : null;
+    }
+
+    @Override
+    protected void clearTetheredStateOnStatus() {
+        if (DBG) log("clearTetheredStateOnStatus()");
+        if (mActiveApn != null) mActiveApn.setTetheredCallOn(false);
     }
 
     @Override

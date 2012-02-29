@@ -39,6 +39,9 @@ public abstract class DataProfile {
 
     public String[] types;
 
+    /* Used in Dual-IP partial retry */
+    private boolean mInPartialRetry = false;
+
     public enum DataProfileType {
         PROFILE_TYPE_APN(0),
         PROFILE_TYPE_CDMA(1),
@@ -54,6 +57,8 @@ public abstract class DataProfile {
             return id;
         }
     }
+
+    private boolean mTetheredCallOn = false;
 
     private DataConnection mDc = null;
 
@@ -108,5 +113,21 @@ public abstract class DataProfile {
 
     // Override this in DataProfileCdma and DataProfileOmh
     public void setProfileId(int profileId) {
+    }
+
+    public void setTetheredCallOn(boolean tetheredCallOn) {
+        mTetheredCallOn = tetheredCallOn;
+    }
+
+    public boolean getTetheredCallOn() {
+        return mTetheredCallOn;
+    }
+
+    public void setInPartialRetry(boolean partialRetry) {
+        mInPartialRetry = partialRetry;
+    }
+
+    public boolean isInPartialRetry() {
+        return mInPartialRetry;
     }
 }

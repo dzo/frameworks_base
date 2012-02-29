@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009,2012, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -443,6 +443,44 @@ public class FmReceiver extends FmTransceiver
    }
 
    /*==============================================================
+   FUNCTION:  reset
+   ==============================================================*/
+   /**
+   *    Reset the FM Device.
+   *    <p>
+   *    This is a synchronous command used to reset the state of FM
+   *    device in case of unrecoverable error. This function is
+   *    expected to be used when the client receives unexpected
+   *    notification of radio disabled. Once called, most
+   *    functionality offered by the FM device will be disabled
+   *    until the client re-enables the device again via
+   *    {@link #enable}.
+   *    <p>
+   *    @return true if reset succeeded, false if reset failed.
+   *    @see #enable
+   *    @see #disable
+   *    @see #registerClient
+   */
+   public boolean reset(){
+      boolean status = false;
+      int state = getFMState();
+
+      if(state == FMState_Turned_Off) {
+         Log.d(TAG, "FM already turned Off.");
+         return false;
+      }
+
+      setFMPowerState(FMState_Turned_Off);
+      Log.v(TAG, "reset: NEW-STATE : FMState_Turned_Off");
+
+      status = unregisterClient();
+
+      release("/dev/radio0");
+
+      return status;
+   }
+
+   /*==============================================================
    FUNCTION:  disable
    ==============================================================*/
    /**
@@ -517,16 +555,9 @@ public class FmReceiver extends FmTransceiver
 
       setFMPowerState(subPwrLevel_FMTurning_Off);
       Log.v(TAG, "disable: CURRENT-STATE : FMRxOn ---> NEW-STATE : FMTurningOff");
-      status = unregisterClient();
-      if( status == true ) {
-          status = super.disable();
-      }
-      else {
-          status = false;
-          Log.e(TAG, "disable: Error while turning FM Off");
-      }
+      super.disable();
 
-      return status;
+      return true;
    }
 
    /*==============================================================
