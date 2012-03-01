@@ -127,7 +127,7 @@ void SensorService::onFirstRef()
 
             // build the sensor list returned to users
             mUserSensorList = mSensorList;
-            if (hasGyro &&
+            if (hasGyro && 
                     (virtualSensorsNeeds & (1<<SENSOR_TYPE_ROTATION_VECTOR))) {
                 // if we have the fancy sensor fusion, and it's not provided by the
                 // HAL, use our own (fused) orientation sensor by removing the
