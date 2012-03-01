@@ -133,6 +133,19 @@ const char CameraParameters::TRUE[] = "true";
 const char CameraParameters::FALSE[] = "false";
 const char CameraParameters::FOCUS_DISTANCE_INFINITY[] = "Infinity";
 
+const char CameraParameters::KEY_CAF[] = "continuous-af";
+const char CameraParameters::KEY_SUPPORTED_CAF[] = "continuous-af-values";
+const char CameraParameters::FOCUS_MODE_CONTINUOUS_CAMERA[] = "continuous-camera";
+const char CameraParameters::KEY_HDR_SAVING_MODE[] = "hdr-saving-mode";
+const char CameraParameters::HDR_SETTING_MODE_OFF[] = "hdr-setting-mode-off";
+const char CameraParameters::HDR_SETTING_MODE_ON[] = "hdr-setting-mode-on";
+const char CameraParameters::KEY_HDR[] = "hdr";
+const char CameraParameters::KEY_SUPPORTED_HDR[] = "hdr-values";
+const char CameraParameters::HDR_MODE_ON[] = "hdr-mode-on";
+const char CameraParameters::HDR_MODE_OFF[] = "hdr-mode-off";
+const char CameraParameters::CAF_OFF[] = "caf-off";
+const char CameraParameters::CAF_ON[] = "caf-on";
+
 // Values for white balance settings.
 const char CameraParameters::WHITE_BALANCE_AUTO[] = "auto";
 const char CameraParameters::WHITE_BALANCE_INCANDESCENT[] = "incandescent";
@@ -392,6 +405,7 @@ void CameraParameters::unflatten(const String8 &params)
 
 void CameraParameters::set(const char *key, const char *value)
 {
+//    LOGI("CameraParameters::set %s %s",key,value);
     // XXX i think i can do this with strspn()
     if (strchr(key, '=') || strchr(key, ';')) {
         //XXX LOGE("Key \"%s\"contains invalid character (= or ;)", key);
@@ -425,6 +439,7 @@ const char *CameraParameters::get(const char *key) const
     String8 v = mMap.valueFor(String8(key));
     if (v.length() == 0)
         return 0;
+//    LOGI("CameraParameters::got %s=%s",key,v.string());
     return v.string();
 }
 
