@@ -1194,15 +1194,19 @@ public class SIMRecords extends IccRecords {
                 break;
             case EF_OPL:
                 if (DBG) log("[EONS] SIM Refresh for EF_OPL");
-                recordsToLoad++;
-                mFh.loadEFLinearFixedAll(EF_OPL,
-                      obtainMessage(EVENT_GET_ALL_OPL_RECORDS_DONE));
+                if(SystemProperties.getBoolean("persist.opl.enabled", true)) {
+                    recordsToLoad++;
+                    mFh.loadEFLinearFixedAll(EF_OPL,
+                          obtainMessage(EVENT_GET_ALL_OPL_RECORDS_DONE));
+                }
                 break;
             case EF_PNN:
                 if (DBG) log("[EONS] SIM Refresh for EF_PNN");
-                recordsToLoad++;
-                mFh.loadEFLinearFixedAll(EF_PNN,
-                      obtainMessage(EVENT_GET_ALL_PNN_RECORDS_DONE));
+		if(SystemProperties.getBoolean("persist.pnn.enabled", true)) {
+                    recordsToLoad++;
+                    mFh.loadEFLinearFixedAll(EF_PNN,
+                          obtainMessage(EVENT_GET_ALL_PNN_RECORDS_DONE));
+                }
                 break;
             case EF_SPN:
                 if (DBG) log("[EONS] SIM Refresh for EF_SPN");
