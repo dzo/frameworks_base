@@ -232,9 +232,6 @@ public:
     // Example value: "21.0" or "-5". Write only.
     static const char KEY_GPS_ALTITUDE[];
 
-    static const char KEY_SKIN_TONE_ENHANCEMENT[] ;
-    static const char KEY_SUPPORTED_SKIN_TONE_ENHANCEMENT_MODES[] ;
-
     // GPS timestamp (UTC in seconds since January 1, 1970). This should be
     // stored in JPEG EXIF header.
     // Example value: "1251192757". Write only.
@@ -261,6 +258,12 @@ public:
     static const char KEY_TOUCH_INDEX_AEC[];
     //Touch Index for AF.
     static const char KEY_TOUCH_INDEX_AF[];
+    //Continuous AF.
+    static const char KEY_CAF[];
+    static const char KEY_CONTINUOUS_AF[];
+    static const char KEY_SUPPORTED_CAF[];
+    static const char KEY_SUPPORTED_CONTINUOUS_AF[];
+
     // Current antibanding setting.
     // Example value: "auto" or ANTIBANDING_XXX constants. Read/write.
     static const char KEY_ANTIBANDING[];
@@ -596,6 +599,11 @@ public:
     static const char KEY_SUPPORTED_VIDEO_HIGH_FRAME_RATE_MODES[];
     static const char KEY_HIGH_DYNAMIC_RANGE_IMAGING[];
     static const char KEY_SUPPORTED_HDR_IMAGING_MODES[];
+    static const char KEY_HDR[];
+    static const char KEY_SUPPORTED_HDR[];
+    static const char HDR_MODE_OFF[];
+    static const char HDR_MODE_ON[];
+
     // Returns true if video stabilization is supported. That is, applications
     // can set KEY_VIDEO_STABILIZATION to true and have a stabilized preview
     // stream and record stabilized videos.
@@ -617,6 +625,9 @@ public:
     //Selectable zone AF.
     static const char KEY_SELECTABLE_ZONE_AF[];
     static const char KEY_SUPPORTED_SELECTABLE_ZONE_AF[];
+
+    static const char KEY_SHUTTER_SOUND[];
+    static const char KEY_BRIGHTNESS_MODE[];
 
     //Face Detection
     static const char KEY_FACE_DETECTION[];
@@ -653,6 +664,10 @@ public:
     // Values for Touch AF/AEC
     static const char TOUCH_AF_AEC_OFF[] ;
     static const char TOUCH_AF_AEC_ON[] ;
+
+    static const char KEY_HDR_SAVING_MODE[] ;
+    static const char HDR_SETTING_MODE_OFF[] ;
+    static const char HDR_SETTING_MODE_ON[] ;
 
     // Values for antibanding settings.
     static const char ANTIBANDING_AUTO[];
@@ -701,7 +716,7 @@ public:
 
     // Pixel color formats for KEY_PREVIEW_FORMAT, KEY_PICTURE_FORMAT,
     // and KEY_VIDEO_FRAME_FORMAT
-   static const char SCENE_DETECT_OFF[];
+    static const char SCENE_DETECT_OFF[];
     static const char SCENE_DETECT_ON[];
     static const char PIXEL_FORMAT_YUV422SP[];
     static const char PIXEL_FORMAT_YUV420SP[]; // NV21
@@ -768,8 +783,16 @@ public:
     // To stop continuous focus, applications should change the focus mode to
     // other modes.
     static const char FOCUS_MODE_CONTINUOUS_PICTURE[];
-
+    static const char FOCUS_MODE_CONTINUOUS_CAMERA[];
     // Normal focus mode. Applications should call
+
+    static const char CAF_OFF[] ;
+    static const char CAF_ON[] ;
+    // Proprietaries from CodeAurora use these...
+    static const char CONTINUOUS_AF_OFF[] ;
+    static const char CONTINUOUS_AF_ON[] ;
+ 
+
     // CameraHardwareInterface.autoFocus to start the focus in this mode.
     static const char FOCUS_MODE_NORMAL[];
     static const char ISO_AUTO[];
@@ -802,6 +825,9 @@ public:
     static const char HISTOGRAM_DISABLE[] ;
 
     // Values for SKIN TONE ENHANCEMENT
+    static const char KEY_SKIN_TONE_ENHANCEMENT[] ;
+    static const char KEY_SUPPORTED_SKIN_TONE_ENHANCEMENT_MODES[] ;
+
     static const char SKIN_TONE_ENHANCEMENT_ENABLE[] ;
     static const char SKIN_TONE_ENHANCEMENT_DISABLE[] ;
 
