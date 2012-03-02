@@ -185,6 +185,9 @@ public abstract class PhoneBase extends Handler implements Phone {
     protected final RegistrantList mSuppServiceFailedRegistrants
             = new RegistrantList();
 
+    protected final RegistrantList mSimRecordsLoadedRegistrants
+            = new RegistrantList();
+
     protected Looper mLooper; /* to insure registrants are in correct thread*/
 
     protected final Context mContext;
@@ -492,6 +495,12 @@ public abstract class PhoneBase extends Handler implements Phone {
         checkCorrectThread(h);
 
         mMmiCompleteRegistrants.remove(h);
+    }
+
+    public void registerForSimRecordsLoaded(Handler h, int what, Object obj) {
+    }
+
+    public void unregisterForSimRecordsLoaded(Handler h) {
     }
 
     /**
