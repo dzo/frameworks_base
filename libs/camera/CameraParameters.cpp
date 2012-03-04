@@ -760,7 +760,7 @@ status_t CameraParameters::dump(int fd, const Vector<String16>& args) const
         k = mMap.keyAt(i);
         v = mMap.valueAt(i);
         snprintf(buffer, 255, "\t%s: %s\n", k.string(), v.string());
-        result.append(buffer);
+       result.append(buffer);
     }
     write(fd, result.string(), result.size());
     return NO_ERROR;
