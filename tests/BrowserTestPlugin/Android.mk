@@ -28,9 +28,9 @@ LOCAL_PACKAGE_NAME := BrowserTestPlugin
 
 LOCAL_JNI_SHARED_LIBRARIES := libtestplugin
 
-include $(BUILD_PACKAGE)
+#include $(BUILD_PACKAGE)
 
 # ============================================================
 
 # Also build all of the sub-targets under this one: the shared library.
-include $(call all-makefiles-under,$(LOCAL_PATH))
+#include $(call all-makefiles-under,$(LOCAL_PATH))
