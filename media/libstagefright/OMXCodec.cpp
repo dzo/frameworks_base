@@ -1681,7 +1681,7 @@ status_t OMXCodec::getVideoProfileLevel(
 
 status_t OMXCodec::setupH263EncoderParameters(const sp<MetaData>& meta) {
     int32_t iFramesInterval, frameRate, bitRate;
-    int32_t hfr = 0;
+    int32_t hfr = 0, hfrRatio = 0;
     bool success = meta->findInt32(kKeyBitRate, &bitRate);
     success = success && meta->findInt32(kKeyFrameRate, &frameRate);
     success = success && meta->findInt32(kKeyIFramesInterval, &iFramesInterval);
@@ -1694,8 +1694,10 @@ status_t OMXCodec::setupH263EncoderParameters(const sp<MetaData>& meta) {
     status_t err = mOMX->getParameter(
             mNode, OMX_IndexParamVideoH263, &h263type, sizeof(h263type));
     CHECK_EQ(err, (status_t)OK);
+    hfrRatio = hfr/frameRate;
 
     frameRate = hfr ? hfr : frameRate;
+    bitRate = hfr ? (hfrRatio*bitRate) : bitRate;
     h263type.nAllowedPictureTypes =
         OMX_VIDEO_PictureTypeI | OMX_VIDEO_PictureTypeP;
 
@@ -1736,7 +1738,7 @@ status_t OMXCodec::setupMPEG2EncoderParameters(const sp<MetaData>& meta) {
 
 status_t OMXCodec::setupMPEG4EncoderParameters(const sp<MetaData>& meta) {
     int32_t iFramesInterval, frameRate, bitRate;
-    int32_t hfr = 0;
+    int32_t hfr = 0, hfrRatio = 0;
     bool success = meta->findInt32(kKeyBitRate, &bitRate);
     success = success && meta->findInt32(kKeyFrameRate, &frameRate);
     success = success && meta->findInt32(kKeyIFramesInterval, &iFramesInterval);
@@ -1756,8 +1758,10 @@ status_t OMXCodec::setupMPEG4EncoderParameters(const sp<MetaData>& meta) {
 
     mpeg4type.nAllowedPictureTypes =
         OMX_VIDEO_PictureTypeI | OMX_VIDEO_PictureTypeP;
+    hfrRatio = hfr/frameRate;
 
     frameRate = hfr ? hfr : frameRate;
+    bitRate = hfr ? (hfrRatio*bitRate) : bitRate;
     mpeg4type.nPFrames = setPFramesSpacing(iFramesInterval, frameRate);
     if (mpeg4type.nPFrames == 0) {
         mpeg4type.nAllowedPictureTypes = OMX_VIDEO_PictureTypeI;
@@ -1796,7 +1800,7 @@ status_t OMXCodec::setupMPEG4EncoderParameters(const sp<MetaData>& meta) {
 
 status_t OMXCodec::setupAVCEncoderParameters(const sp<MetaData>& meta) {
     int32_t iFramesInterval, frameRate, bitRate;
-    int32_t hfr = 0;
+    int32_t hfr = 0, hfrRatio = 0;
     bool success = meta->findInt32(kKeyBitRate, &bitRate);
     success = success && meta->findInt32(kKeyFrameRate, &frameRate);
     success = success && meta->findInt32(kKeyIFramesInterval, &iFramesInterval);
@@ -1822,8 +1826,9 @@ status_t OMXCodec::setupAVCEncoderParameters(const sp<MetaData>& meta) {
     if (err != OK) return err;
     h264type.eProfile = static_cast<OMX_VIDEO_AVCPROFILETYPE>(profileLevel.mProfile);
     h264type.eLevel = static_cast<OMX_VIDEO_AVCLEVELTYPE>(profileLevel.mLevel);
-
+    hfrRatio = hfr/frameRate;
     frameRate = hfr ? hfr : frameRate;
+    bitRate = hfr ? (hfrRatio*bitRate) : bitRate;
 
     // FIXME:
     // Remove the workaround after the work in done.
