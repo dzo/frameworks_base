@@ -1375,8 +1375,6 @@ status_t MediaPlayerService::AudioOutput::openSession(
     }
     LOGV("openSession: Out");
     mSession = t;
-    LOGV("setVolume");
-    t->setVolume(mLeftVolume, mRightVolume);
     return NO_ERROR;
 }
 
@@ -1531,14 +1529,11 @@ void MediaPlayerService::AudioOutput::resumeSession()
 
 void MediaPlayerService::AudioOutput::setVolume(float left, float right)
 {
-    LOGV("setVolume(%f, %f): %p", left, right, mSession);
-
+    LOGV("setVolume(%f, %f)", left, right);
     mLeftVolume = left;
     mRightVolume = right;
     if (mTrack) {
         mTrack->setVolume(left, right);
-    } else if(mSession) {
-        mSession->setVolume(left, right);
     }
 }
 
