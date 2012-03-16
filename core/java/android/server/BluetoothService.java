@@ -806,13 +806,18 @@ public class BluetoothService extends IBluetooth.Stub {
             return false;
         }
 
-        if(mFTPEnabled != true){
+        if (mFTPEnabled != true){
             int[] svcIdentifiers = new int[1];
             svcIdentifiers[0] =  BluetoothUuid.getServiceIdentifierFromParcelUuid(BluetoothUuid.FileTransfer);
 
             mFTPRecordHandle = addReservedServiceRecordsNative(svcIdentifiers);
-            mFTPEnabled = true;
-            return true;
+            if (null != mFTPRecordHandle){
+                mFTPEnabled = true;
+                return true;
+            } else {
+                Log.e(TAG, "Failed to add FTP service record");
+                return false;
+            }
         } else {
             Log.e(TAG, "FTP already enabled");
             return false;
@@ -825,7 +830,7 @@ public class BluetoothService extends IBluetooth.Stub {
             return false;
         }
 
-        if(mFTPEnabled ==true){
+        if((mFTPEnabled == true) && (null !=  mFTPRecordHandle)){
             removeReservedServiceRecordsNative(mFTPRecordHandle);
             mFTPEnabled = false;
             return true;
@@ -846,10 +851,15 @@ public class BluetoothService extends IBluetooth.Stub {
             svcIdentifiers[0] =  BluetoothUuid.getServiceIdentifierFromParcelUuid(BluetoothUuid.DUN);
 
             mDUNRecordHandle = addReservedServiceRecordsNative(svcIdentifiers);
-            Log.e(TAG, "Starting BT-DUN server");
-            SystemService.start("bt-dun");
-            mDUNEnabled = true;
-            return true;
+            if (null != mDUNRecordHandle){
+                Log.e(TAG, "Starting BT-DUN server");
+                SystemService.start("bt-dun");
+                mDUNEnabled = true;
+                return true;
+            } else {
+                Log.e(TAG, "Failed to add DUN service record");
+                return false;
+            }
         } else {
             Log.e(TAG, "DUN already enabled");
             return false;
@@ -862,7 +872,7 @@ public class BluetoothService extends IBluetooth.Stub {
             return false;
         }
 
-        if (mDUNEnabled == true ) {
+        if ((mDUNEnabled == true) && (null != mDUNRecordHandle)) {
             removeReservedServiceRecordsNative(mDUNRecordHandle);
             Log.e(TAG, "Stop BT-DUN server");
             SystemService.stop("bt-dun");
@@ -885,10 +895,15 @@ public class BluetoothService extends IBluetooth.Stub {
             svcIdentifiers[0] =  BluetoothUuid.getServiceIdentifierFromParcelUuid(BluetoothUuid.SAP);
 
             mSAPRecordHandle = addReservedServiceRecordsNative(svcIdentifiers);
-            Log.i(TAG, "Starting SAP server");
-            SystemService.start("bt-sap");
-            mSAPEnabled = true;
-            return true;
+            if (null != mSAPRecordHandle) {
+                Log.i(TAG, "Starting SAP server");
+                SystemService.start("bt-sap");
+                mSAPEnabled = true;
+                return true;
+            } else {
+                Log.e(TAG, "Failed to add SAP service record");
+                return false;
+            }
         } else {
             Log.e(TAG, "SAP already enabled");
             return false;
@@ -901,7 +916,7 @@ public class BluetoothService extends IBluetooth.Stub {
             return false;
         }
 
-        if (mSAPEnabled == true) {
+        if ((mSAPEnabled == true) && (null != mSAPRecordHandle)) {
             removeReservedServiceRecordsNative(mSAPRecordHandle);
             Log.i(TAG, "Stop SAP server");
             SystemService.stop("bt-sap");
@@ -930,8 +945,13 @@ public class BluetoothService extends IBluetooth.Stub {
             svcIdentifiers[0] =  BluetoothUuid.getServiceIdentifierFromParcelUuid(BluetoothUuid.MessageAccessServer);
             Log.e(TAG, "calling addReservedServiceRecordsNative");
             mMAPRecordHandle = addReservedServiceRecordsNative(svcIdentifiers);
-            mMAPEnabled = true;
-            return true;
+            if (null != mMAPRecordHandle) {
+                mMAPEnabled = true;
+                return true;
+            } else {
+                Log.e(TAG, "Failed to add MAP service record");
+                return false;
+            }
         } else {
             Log.e(TAG, "MAP already enabled");
             return false;
@@ -950,7 +970,7 @@ public class BluetoothService extends IBluetooth.Stub {
             return false;
         }
 
-        if (mMAPEnabled == true) {
+        if ((mMAPEnabled == true) && (null != mMAPRecordHandle)) {
             removeReservedServiceRecordsNative(mMAPRecordHandle);
             mMAPEnabled = false;
             return true;
