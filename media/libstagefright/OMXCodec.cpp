@@ -1363,7 +1363,7 @@ void OMXCodec::setVideoInputFormat(
         const char *mime, const sp<MetaData>& meta) {
 
     int32_t width, height, frameRate, bitRate, stride, sliceHeight;
-    int32_t hfr = 0;
+    int32_t hfr = 0, hfrRatio = 0;
 
     char value[PROPERTY_VALUE_MAX];
     if ( property_get("encoder.video.bitrate", value, 0) > 0 && atoi(value) > 0){
@@ -1381,7 +1381,9 @@ void OMXCodec::setVideoInputFormat(
     CHECK(success);
     CHECK(stride != 0);
 
+    hfrRatio = hfr/frameRate;
     frameRate = hfr?hfr:frameRate;
+    bitRate = hfr ? (hfrRatio*bitRate) : bitRate;
 
     OMX_VIDEO_CODINGTYPE compressionFormat = OMX_VIDEO_CodingUnused;
     if (!strcasecmp(MEDIA_MIMETYPE_VIDEO_AVC, mime)) {
@@ -1689,14 +1691,14 @@ status_t OMXCodec::setupH263EncoderParameters(const sp<MetaData>& meta) {
     status_t err = mOMX->getParameter(
             mNode, OMX_IndexParamVideoH263, &h263type, sizeof(h263type));
     CHECK_EQ(err, (status_t)OK);
-    hfrRatio = hfr/frameRate;
+    hfrRatio = hfr ? hfr/frameRate : 1;
 
     frameRate = hfr ? hfr : frameRate;
     bitRate = hfr ? (hfrRatio*bitRate) : bitRate;
     h263type.nAllowedPictureTypes =
         OMX_VIDEO_PictureTypeI | OMX_VIDEO_PictureTypeP;
 
-    h263type.nPFrames = setPFramesSpacing(iFramesInterval, frameRate);
+    h263type.nPFrames = setPFramesSpacing(iFramesInterval, frameRate / hfrRatio);
     if (h263type.nPFrames == 0) {
         h263type.nAllowedPictureTypes = OMX_VIDEO_PictureTypeI;
     }
@@ -1753,11 +1755,11 @@ status_t OMXCodec::setupMPEG4EncoderParameters(const sp<MetaData>& meta) {
 
     mpeg4type.nAllowedPictureTypes =
         OMX_VIDEO_PictureTypeI | OMX_VIDEO_PictureTypeP;
-    hfrRatio = hfr/frameRate;
+    hfrRatio = hfr ? hfr/frameRate : 1;
 
     frameRate = hfr ? hfr : frameRate;
     bitRate = hfr ? (hfrRatio*bitRate) : bitRate;
-    mpeg4type.nPFrames = setPFramesSpacing(iFramesInterval, frameRate);
+    mpeg4type.nPFrames = setPFramesSpacing(iFramesInterval, frameRate / hfrRatio);
     if (mpeg4type.nPFrames == 0) {
         mpeg4type.nAllowedPictureTypes = OMX_VIDEO_PictureTypeI;
     }
@@ -1822,7 +1824,7 @@ status_t OMXCodec::setupAVCEncoderParameters(const sp<MetaData>& meta) {
     if (err != OK) return err;
     h264type.eProfile = static_cast<OMX_VIDEO_AVCPROFILETYPE>(profileLevel.mProfile);
     h264type.eLevel = static_cast<OMX_VIDEO_AVCLEVELTYPE>(profileLevel.mLevel);
-    hfrRatio = hfr/frameRate;
+    hfrRatio = hfr ? hfr/frameRate : 1;
     frameRate = hfr ? hfr : frameRate;
     bitRate = hfr ? (hfrRatio*bitRate) : bitRate;
 
@@ -1837,7 +1839,7 @@ status_t OMXCodec::setupAVCEncoderParameters(const sp<MetaData>& meta) {
         h264type.bUseHadamard = OMX_TRUE;
         h264type.nRefFrames = 1;
         h264type.nBFrames = 0;
-        h264type.nPFrames = setPFramesSpacing(iFramesInterval, frameRate);
+        h264type.nPFrames = setPFramesSpacing(iFramesInterval, frameRate / hfrRatio);
         if (h264type.nPFrames == 0) {
             h264type.nAllowedPictureTypes = OMX_VIDEO_PictureTypeI;
         }
@@ -1853,7 +1855,7 @@ status_t OMXCodec::setupAVCEncoderParameters(const sp<MetaData>& meta) {
 
 
     if (h264type.eProfile > OMX_VIDEO_AVCProfileBaseline) {
-        h264type.nPFrames = setPFramesSpacing(iFramesInterval, frameRate);
+        h264type.nPFrames = setPFramesSpacing(iFramesInterval, frameRate / hfrRatio);
         h264type.nBFrames = 1;
         mNumBFrames = 1;
     }
