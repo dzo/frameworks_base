@@ -344,6 +344,7 @@ private:
         int64_t mStatisticsFrames;
         bool mVeryFirstFrame;
         int64_t mTotalTime;
+        int64_t mFirstFrameTime;
 
     } mStats;
 
