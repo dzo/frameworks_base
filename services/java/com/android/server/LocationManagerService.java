@@ -80,7 +80,7 @@ import android.util.Slog;
  */
 public class LocationManagerService extends ILocationManager.Stub implements Runnable {
     private static final String TAG = "LocationManagerService";
-    private static final boolean LOCAL_LOGV = true;
+    private static final boolean LOCAL_LOGV = false;
 
     // The last time a location was written, by provider name.
     private HashMap<String,Long> mLastWriteTime = new HashMap<String,Long>();
@@ -118,6 +118,8 @@ public class LocationManagerService extends ILocationManager.Stub implements Run
     // Cache the real providers for use in addTestProvider() and removeTestProvider()
      LocationProviderProxy mNetworkLocationProvider;
      LocationProviderInterface mGpsLocationProvider;
+     LocationProviderInterface mHybridLocationProvider;
+
 
     // Handler messages
     private static final int MESSAGE_LOCATION_CHANGED = 1;
@@ -496,6 +498,7 @@ public class LocationManagerService extends ILocationManager.Stub implements Run
             HybridLocationProvider hybridProvider = gpsProvider.getHybridProvider();
             if(hybridProvider != null) {
                 addProvider(hybridProvider);
+                mHybridLocationProvider = hybridProvider;
             }
         }
 
@@ -2000,7 +2003,9 @@ public class LocationManagerService extends ILocationManager.Stub implements Run
                             // notify other providers of the new location
                             for (int i = mProviders.size() - 1; i >= 0; i--) {
                                 LocationProviderInterface p = mProviders.get(i);
-                                if (!provider.equals(p.getName())) {
+                                //We want to suppress location updates from Hybrid provider
+                                if ((!provider.equals(LocationManager.HYBRID_PROVIDER)) &&
+                                    (!provider.equals(p.getName()))) {
                                     p.updateLocation(location);
                                 }
                             }
@@ -2248,7 +2253,8 @@ public class LocationManagerService extends ILocationManager.Stub implements Run
                 supportsSpeed, supportsBearing, powerRequirement, accuracy);
             // remove the real provider if we are replacing GPS or network provider
             if (LocationManager.GPS_PROVIDER.equals(name)
-                    || LocationManager.NETWORK_PROVIDER.equals(name)) {
+                    || LocationManager.NETWORK_PROVIDER.equals(name)
+                    || LocationManager.HYBRID_PROVIDER.equals(name)) {
                 LocationProviderInterface p = mProvidersByName.get(name);
                 if (p != null) {
                     p.enableLocationTracking(false);
@@ -2283,6 +2289,9 @@ public class LocationManagerService extends ILocationManager.Stub implements Run
             } else if (LocationManager.NETWORK_PROVIDER.equals(provider) &&
                     mNetworkLocationProvider != null) {
                 addProvider(mNetworkLocationProvider);
+            } else if (LocationManager.HYBRID_PROVIDER.equals(provider) &&
+                    mHybridLocationProvider != null) {
+                addProvider(mHybridLocationProvider);
             }
             mLastKnownLocation.put(provider, null);
             updateProvidersLocked();
