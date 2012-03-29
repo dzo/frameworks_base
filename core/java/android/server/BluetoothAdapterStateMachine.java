@@ -221,8 +221,7 @@ final class BluetoothAdapterStateMachine extends StateMachine {
                         }
                     } else if (mContext.getResources().getBoolean
                             (com.android.internal.R.bool.config_bluetooth_adapter_quick_switch) &&
-                            !(("msm7630_surf".equals(SystemProperties.get("ro.product.device"))) ||
-                            ("msm7630_fusion".equals(SystemProperties.get("ro.product.device"))))) {
+                            is_hot_off_enabled()) {
                         sendMessage(TURN_HOT);
                     }
                     break;
@@ -498,8 +497,7 @@ final class BluetoothAdapterStateMachine extends StateMachine {
                             finishSwitchingOff();
                             if (!mContext.getResources().getBoolean
                             (com.android.internal.R.bool.config_bluetooth_adapter_quick_switch) ||
-                            ("msm7630_surf".equals(SystemProperties.get("ro.product.device")))  ||
-                            ("msm7630_fusion".equals(SystemProperties.get("ro.product.device")))) {
+                            !is_hot_off_enabled()) {
                                 deferMessage(obtainMessage(TURN_COLD));
                             }
                         }
@@ -507,8 +505,7 @@ final class BluetoothAdapterStateMachine extends StateMachine {
                         if (mPublicState != BluetoothAdapter.STATE_TURNING_ON) {
                             if (mContext.getResources().getBoolean
                             (com.android.internal.R.bool.config_bluetooth_adapter_quick_switch) &&
-                            !(("msm7630_surf".equals(SystemProperties.get("ro.product.device"))) ||
-                            ("msm7630_fusion".equals(SystemProperties.get("ro.product.device"))))) {
+                            is_hot_off_enabled()) {
                                 recoverStateMachine(TURN_HOT, null);
                             } else {
                                 recoverStateMachine(TURN_COLD, null);
@@ -528,8 +525,7 @@ final class BluetoothAdapterStateMachine extends StateMachine {
                     deferMessage(obtainMessage(TURN_COLD));
                     if (mContext.getResources().getBoolean
                         (com.android.internal.R.bool.config_bluetooth_adapter_quick_switch) &&
-                        !(("msm7630_surf".equals(SystemProperties.get("ro.product.device"))) ||
-                        ("msm7630_fusion".equals(SystemProperties.get("ro.product.device"))))) {
+                        is_hot_off_enabled()) {
                         deferMessage(obtainMessage(TURN_HOT));
                     }
                     break;
@@ -541,8 +537,7 @@ final class BluetoothAdapterStateMachine extends StateMachine {
                     deferMessage(obtainMessage(TURN_COLD));
                     if (mContext.getResources().getBoolean
                         (com.android.internal.R.bool.config_bluetooth_adapter_quick_switch) &&
-                        !(("msm7630_surf".equals(SystemProperties.get("ro.product.device"))) ||
-                        ("msm7630_fusion".equals(SystemProperties.get("ro.product.device"))))) {
+                        is_hot_off_enabled()) {
                         deferMessage(obtainMessage(TURN_HOT));
                     }
                     break;
@@ -677,8 +672,7 @@ final class BluetoothAdapterStateMachine extends StateMachine {
                         transitionTo(mHotOff);
                         if (!mContext.getResources().getBoolean
                             (com.android.internal.R.bool.config_bluetooth_adapter_quick_switch) ||
-                            ("msm7630_surf".equals(SystemProperties.get("ro.product.device"))) ||
-                            ("msm7630_fusion".equals(SystemProperties.get("ro.product.device")))) {
+                            !is_hot_off_enabled()) {
                             deferMessage(obtainMessage(TURN_COLD));
                         }
                     } else {
@@ -698,8 +692,7 @@ final class BluetoothAdapterStateMachine extends StateMachine {
                     deferMessage(obtainMessage(TURN_COLD));
                     if (mContext.getResources().getBoolean
                         (com.android.internal.R.bool.config_bluetooth_adapter_quick_switch) &&
-                        !(("msm7630_surf".equals(SystemProperties.get("ro.product.device"))) ||
-                         ("msm7630_fusion".equals(SystemProperties.get("ro.product.device"))))) {
+                        is_hot_off_enabled()) {
                         deferMessage(obtainMessage(TURN_HOT));
                     }
                     break;
@@ -813,6 +806,18 @@ final class BluetoothAdapterStateMachine extends StateMachine {
      */
     int getBluetoothAdapterState() {
         return mPublicState;
+    }
+    /**
+    *Return if HOT OFF is enabled.
+    */
+    boolean is_hot_off_enabled() {
+        if (("msm7630_surf".equals(SystemProperties.get("ro.product.device"))) ||
+            ("msm7630_fusion".equals(SystemProperties.get("ro.product.device"))) ||
+            ("msm7627a".equals(SystemProperties.get("ro.product.device")))) {
+            return false;
+        } else {
+            return true;
+        }
     }
 
     BluetoothEventLoop getBluetoothEventLoop() {
