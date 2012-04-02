@@ -137,6 +137,24 @@
     <string name="turn_off_radio" msgid="8198784949987062346">"Отключить беспроводное соединение"</string>
     <string name="screen_lock" msgid="799094655496098153">"Блокировка экрана"</string>
     <string name="power_off" msgid="4266614107412865048">"Выключение"</string>
+    <!-- Button to reboot the phone, within the Phone Options dialog -->
+    <string name="reboot_system" product="tablet">Перезагрузка планшетного ПК</string>
+    <string name="reboot_system" product="default">Перезагрузка телефона</string>
+
+    <!-- label for item that screenshots in phone options dialog -->
+    <string name="global_action_screenshot">Скриншот</string>
+    <string name="global_action_reboot">Перезагрузка</string>
+
+    <!-- Button to reboot the phone, within the Reboot Options dialog -->
+    <string name="reboot_reboot">Перезагрузка</string>
+
+    <!-- Reboot Progress Dialog. This is shown if the user chooses to reboot the phone. -->
+    <string name="reboot_progress">Перезагрузка\u2026</string>
+    <!-- Reboot Confirmation Dialog.  When the user chooses to reboot the phone, there will be a confirmation dialog.  This is the message. -->
+    <string name="reboot_confirm">Ваш телефон будет перезагружен</string>
+    <!-- label for item that reboots the phone in phone options dialog -->
+    <string name="global_action_choose_profile">Выбрать профиль</string>
+
     <string name="silent_mode_silent" msgid="319298163018473078">"Звонок отключен"</string>
     <string name="silent_mode_vibrate" msgid="7072043388581551395">"Вибросигнал"</string>
     <string name="silent_mode_ring" msgid="8592241816194074353">"Звонок включен"</string>
@@ -1227,4 +1245,22 @@
     <string name="sending" msgid="8715108995741758718">"Отправка..."</string>
     <string name="launchBrowserDefault" msgid="2057951947297614725">"Запустить браузер?"</string>
     <string name="SetupCallDefault" msgid="6870275517518479651">"Принять вызов?"</string>
+
+    <!--Application killed toast -->
+    <string name="app_killed_message">Приложения закрыты</string>
+
+    <!-- Names of default profiles. -->
+    <string name="profileNameDefault">По умолчанию</string>
+    <string name="profileNameWork">Работа</string>
+    <string name="profileNameHome">Дом</string>
+    <string name="profileNameSilent">Без звука</string>
+    <string name="profileNameNight">Ночь</string>
+
+    <!-- Names of application groups. -->
+    <string name="profileGroupPhone">Телефон</string>
+    <string name="profileGroupCalendar">Календарь</string>
+
+    <!-- Name of wildcard profile. -->
+    <string name="wildcardProfile">Другой</string>
+
 </resources>
