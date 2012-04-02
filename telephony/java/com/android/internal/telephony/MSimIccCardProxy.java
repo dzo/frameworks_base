@@ -54,7 +54,7 @@ public class MSimIccCardProxy extends IccCardProxy {
     private static final int EVENT_SUBSCRIPTION_ACTIVATED = 501;
     private static final int EVENT_SUBSCRIPTION_DEACTIVATED = 502;
 
-    private int mCardIndex;
+    private Integer mCardIndex = null;
     private Subscription mSubscriptionData = null;
 
     public MSimIccCardProxy(Context context, CommandsInterface ci, int cardIndex) {
@@ -64,10 +64,13 @@ public class MSimIccCardProxy extends IccCardProxy {
 
         //TODO: Card index and subscription are same???
         SubscriptionManager subMgr = SubscriptionManager.getInstance();
-        subMgr.registerForSubscriptionActivated(mCardIndex, this, EVENT_SUBSCRIPTION_ACTIVATED, null);
-        subMgr.registerForSubscriptionDeactivated(mCardIndex, this, EVENT_SUBSCRIPTION_DEACTIVATED, null);
+        subMgr.registerForSubscriptionActivated(mCardIndex,
+                this, EVENT_SUBSCRIPTION_ACTIVATED, null);
+        subMgr.registerForSubscriptionDeactivated(mCardIndex,
+                this, EVENT_SUBSCRIPTION_DEACTIVATED, null);
 
         resetProperties();
+        setExternalState(State.NOT_READY,false);
     }
 
     @Override
@@ -98,7 +101,7 @@ public class MSimIccCardProxy extends IccCardProxy {
                         MSimTelephonyManager.setTelephonyProperty
                                 (PROPERTY_ICC_OPERATOR_NUMERIC, sub, operator);
                     } else {
-                        Log.e(LOG_TAG, "EVENT_RECORDS_LOADED Operator name is null");
+                        loge("EVENT_RECORDS_LOADED Operator name is null");
                     }
                     String countryCode = ((SIMRecords)mIccRecords).getCountryCode();
                     if (countryCode != null) {
@@ -106,7 +109,7 @@ public class MSimIccCardProxy extends IccCardProxy {
                                 (PROPERTY_ICC_OPERATOR_ISO_COUNTRY, sub,
                                  MccTable.countryCodeForMcc(Integer.parseInt(countryCode)));
                     } else {
-                        Log.e(LOG_TAG, "EVENT_RECORDS_LOADED Country code is null");
+                        loge("EVENT_RECORDS_LOADED Country code is null");
                     }
                 }
                 broadcastIccStateChangedIntent(INTENT_VALUE_ICC_LOADED, null);
@@ -154,13 +157,13 @@ public class MSimIccCardProxy extends IccCardProxy {
         IccRecords newRecords = null;
         if (newCard != null) {
             state = newCard.getCardState();
-            Log.d(LOG_TAG,"Card State = " + state);
+            log("Card State = " + state);
             newApp = newCard.getApplication(mCurrentAppType);
             if (newApp != null) {
                 newRecords = newApp.getIccRecords();
             }
         } else {
-            Log.d(LOG_TAG,"No card available");
+            log("No card available");
         }
 
         if (mIccRecords != newRecords || mUiccApplication != newApp || mUiccCard != newCard) {
@@ -184,9 +187,12 @@ public class MSimIccCardProxy extends IccCardProxy {
     void resetProperties() {
         if (mSubscriptionData != null
                 && mCurrentAppType == AppFamily.APP_FAM_3GPP) {
-            MSimTelephonyManager.setTelephonyProperty(PROPERTY_ICC_OPERATOR_NUMERIC, mSubscriptionData.subId,"" );
-            MSimTelephonyManager.setTelephonyProperty(PROPERTY_ICC_OPERATOR_ISO_COUNTRY, mSubscriptionData.subId, "");
-            MSimTelephonyManager.setTelephonyProperty(PROPERTY_ICC_OPERATOR_ALPHA, mSubscriptionData.subId, "");
+            MSimTelephonyManager.setTelephonyProperty(PROPERTY_ICC_OPERATOR_NUMERIC,
+                mSubscriptionData.subId,"" );
+            MSimTelephonyManager.setTelephonyProperty(PROPERTY_ICC_OPERATOR_ISO_COUNTRY,
+                mSubscriptionData.subId, "");
+            MSimTelephonyManager.setTelephonyProperty(PROPERTY_ICC_OPERATOR_ALPHA,
+                mSubscriptionData.subId, "");
          }
     }
 
@@ -200,7 +206,9 @@ public class MSimIccCardProxy extends IccCardProxy {
     @Override
     protected void registerUiccCardEvents() {
         super.registerUiccCardEvents();
-        if (mIccRecords != null) mIccRecords.registerForRecordsEvents(this, EVENT_ICC_RECORD_EVENTS, null);
+        if (mIccRecords != null) {
+            mIccRecords.registerForRecordsEvents(this, EVENT_ICC_RECORD_EVENTS, null);
+        }
     }
 
     @Override
@@ -211,6 +219,11 @@ public class MSimIccCardProxy extends IccCardProxy {
 
     @Override
     public void broadcastIccStateChangedIntent(String value, String reason) {
+        if (mCardIndex == null) {
+            loge("broadcastIccStateChangedIntent: Card Index is not set; Return!!");
+            return;
+        }
+
         int subId = mCardIndex;
         if (mQuietMode) {
             log("QuietMode: NOT Broadcasting intent ACTION_SIM_STATE_CHANGED " +  value
@@ -232,17 +245,17 @@ public class MSimIccCardProxy extends IccCardProxy {
 
     @Override
     protected void setExternalState(State newState, boolean override) {
+        if (mCardIndex == null) {
+            loge("setExternalState: Card Index is not set; Return!!");
+            return;
+        }
+
         if (!override && newState == mExternalState) {
             return;
         }
         mExternalState = newState;
         MSimTelephonyManager.setTelephonyProperty(PROPERTY_SIM_STATE,
                 mCardIndex, getState().toString());
-        broadcastIccStateChangedIntent(mExternalState.getIntentString(), null);
-        if (mSubscriptionData != null) {
-            MSimTelephonyManager.setTelephonyProperty
-                    (PROPERTY_SIM_STATE, mCardIndex, getState().toString());
-        }
         broadcastIccStateChangedIntent(mExternalState.getIntentString(),
                 mExternalState.getReason());
         // TODO: Need to notify registrants for other states as well.
@@ -253,11 +266,11 @@ public class MSimIccCardProxy extends IccCardProxy {
 
     @Override
     protected void log(String msg) {
-        if (DBG) Log.d(LOG_TAG, msg);
+        if (DBG) Log.d(LOG_TAG, "[CardIndex:" + mCardIndex + "]" + msg);
     }
 
     @Override
     protected void loge(String msg) {
-        Log.e(LOG_TAG, msg);
+        Log.e(LOG_TAG, "[CardIndex:" + mCardIndex + "]" + msg);
     }
 }
