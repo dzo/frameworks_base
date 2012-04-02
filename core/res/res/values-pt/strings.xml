@@ -1136,7 +1136,7 @@
     <string name="sync_do_nothing" msgid="8717589462945226869">"Não fazer nada por enquanto."</string>
     <string name="choose_account_label" msgid="4191313562041125787">"Selecione uma conta"</string>
     <string name="add_account_label" msgid="2935267344849993553">"Adicionar uma conta"</string>
-    <string name="choose_account_text" msgid="6891230675141555481">"Que conta você gostaria de usar?"</string>
+    <string name="choose_account_text" msgid="6891230675141555481">"Que conta gostaria de usar?"</string>
     <string name="add_account_button_label" msgid="3611982894853435874">"Adicionar conta"</string>
     <string name="number_picker_increment_button" msgid="4830170763103463443">"Incremento"</string>
     <string name="number_picker_decrement_button" msgid="2576606679160067262">"Redução"</string>
@@ -1194,13 +1194,13 @@
     <string name="data_usage_warning_title" msgid="1955638862122232342">"Aviso sobre uso de dados"</string>
     <string name="data_usage_warning_body" msgid="7217480745540055170">"Toque p/ ver uso e configurações"</string>
     <string name="data_usage_3g_limit_title" msgid="7093334419518706686">"Dados 2G e 3G desativados"</string>
-    <string name="data_usage_4g_limit_title" msgid="7636489436819470761">"Dados 4G desativados"</string>
-    <string name="data_usage_mobile_limit_title" msgid="7869402519391631884">"Dados móveis desativados"</string>
+    <string name="data_usage_4g_limit_title" msgid="7636489436819470761">"Dados 4G desactivados"</string>
+    <string name="data_usage_mobile_limit_title" msgid="7869402519391631884">"Dados móveis desactivados"</string>
     <string name="data_usage_wifi_limit_title" msgid="8992154736441284865">"Dados Wi-Fi desativados"</string>
     <string name="data_usage_limit_body" msgid="4313857592916426843">"Toque para activar"</string>
     <string name="data_usage_3g_limit_snoozed_title" msgid="7026739121138005231">"Limite de dados 2G-3G excedido"</string>
     <string name="data_usage_4g_limit_snoozed_title" msgid="1106562779311209039">"Limite de dados 4G excedido"</string>
-    <string name="data_usage_mobile_limit_snoozed_title" msgid="279240572165412168">"Limite de dados do celular excedido"</string>
+    <string name="data_usage_mobile_limit_snoozed_title" msgid="279240572165412168">"Limite de dados do telemóvel excedido"</string>
     <string name="data_usage_wifi_limit_snoozed_title" msgid="8743856006384825974">"Limite de dados Wi-Fi excedido"</string>
     <string name="data_usage_limit_snoozed_body" msgid="2932736326652880660">"<xliff:g id="SIZE">%s</xliff:g> acima do limite especificado"</string>
     <string name="data_usage_restricted_title" msgid="5965157361036321914">"Dados de segundo plano restritos"</string>
