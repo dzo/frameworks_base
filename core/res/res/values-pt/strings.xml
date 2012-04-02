@@ -1136,7 +1136,7 @@
     <string name="sync_do_nothing" msgid="8717589462945226869">"Não fazer nada por enquanto."</string>
     <string name="choose_account_label" msgid="4191313562041125787">"Selecione uma conta"</string>
     <string name="add_account_label" msgid="2935267344849993553">"Adicionar uma conta"</string>
-    <string name="choose_account_text" msgid="6891230675141555481">"Que conta você gostaria de usar?"</string>
+    <string name="choose_account_text" msgid="6891230675141555481">"Que conta gostaria de usar?"</string>
     <string name="add_account_button_label" msgid="3611982894853435874">"Adicionar conta"</string>
     <string name="number_picker_increment_button" msgid="4830170763103463443">"Incremento"</string>
     <string name="number_picker_decrement_button" msgid="2576606679160067262">"Redução"</string>
@@ -1194,13 +1194,13 @@
     <string name="data_usage_warning_title" msgid="1955638862122232342">"Aviso sobre uso de dados"</string>
     <string name="data_usage_warning_body" msgid="7217480745540055170">"Toque p/ ver uso e configurações"</string>
     <string name="data_usage_3g_limit_title" msgid="7093334419518706686">"Dados 2G e 3G desativados"</string>
-    <string name="data_usage_4g_limit_title" msgid="7636489436819470761">"Dados 4G desativados"</string>
-    <string name="data_usage_mobile_limit_title" msgid="7869402519391631884">"Dados móveis desativados"</string>
+    <string name="data_usage_4g_limit_title" msgid="7636489436819470761">"Dados 4G desactivados"</string>
+    <string name="data_usage_mobile_limit_title" msgid="7869402519391631884">"Dados móveis desactivados"</string>
     <string name="data_usage_wifi_limit_title" msgid="8992154736441284865">"Dados Wi-Fi desativados"</string>
-    <string name="data_usage_limit_body" msgid="4313857592916426843">"Toque para ativar"</string>
+    <string name="data_usage_limit_body" msgid="4313857592916426843">"Toque para activar"</string>
     <string name="data_usage_3g_limit_snoozed_title" msgid="7026739121138005231">"Limite de dados 2G-3G excedido"</string>
     <string name="data_usage_4g_limit_snoozed_title" msgid="1106562779311209039">"Limite de dados 4G excedido"</string>
-    <string name="data_usage_mobile_limit_snoozed_title" msgid="279240572165412168">"Limite de dados do celular excedido"</string>
+    <string name="data_usage_mobile_limit_snoozed_title" msgid="279240572165412168">"Limite de dados do telemóvel excedido"</string>
     <string name="data_usage_wifi_limit_snoozed_title" msgid="8743856006384825974">"Limite de dados Wi-Fi excedido"</string>
     <string name="data_usage_limit_snoozed_body" msgid="2932736326652880660">"<xliff:g id="SIZE">%s</xliff:g> acima do limite especificado"</string>
     <string name="data_usage_restricted_title" msgid="5965157361036321914">"Dados de segundo plano restritos"</string>
@@ -1220,11 +1220,11 @@
     <string name="sha256_fingerprint" msgid="4391271286477279263">"Impressão digital SHA-256"</string>
     <string name="sha1_fingerprint" msgid="7930330235269404581">"Impressão digital SHA-1"</string>
     <string name="activity_chooser_view_see_all" msgid="180268188117163072">"Ver todos\u2026"</string>
-    <string name="activity_chooser_view_dialog_title_default" msgid="3325054276356556835">"Selecionar atividade"</string>
-    <string name="share_action_provider_share_with" msgid="1791316789651185229">"Compartilhar com\u2026"</string>
+    <string name="activity_chooser_view_dialog_title_default" msgid="3325054276356556835">"Seleccionar atividade"</string>
+    <string name="share_action_provider_share_with" msgid="1791316789651185229">"Partilhar com\u2026"</string>
     <string name="status_bar_device_locked" msgid="3092703448690669768">"Dispositivo bloqueado."</string>
     <string name="list_delimeter" msgid="3975117572185494152">", "</string>
-    <string name="sending" msgid="8715108995741758718">"Enviando\u2026"</string>
+    <string name="sending" msgid="8715108995741758718">"A enviar\u2026"</string>
     <string name="launchBrowserDefault" msgid="2057951947297614725">"Abrir Navegador?"</string>
     <string name="SetupCallDefault" msgid="6870275517518479651">"Aceitar chamada?"</string>
 
@@ -1253,7 +1253,7 @@
     <string name="reboot_system" product="default">Reiniciar telefone</string>
 
     <!-- label for item that screenshots in phone options dialog -->
-    <string name="global_action_screenshot">Capturar tela</string>
+    <string name="global_action_screenshot">Screenshot</string>
 
     <!-- label for item that reboots the phone in phone options dialog -->
     <string name="global_action_reboot">Reiniciar</string>
@@ -1261,18 +1261,18 @@
     <!-- Button to reboot the phone, within the Reboot Options dialog -->
     <string name="reboot_reboot">Reiniciar</string>
     <!-- Button to reboot the phone into recovery, within the Reboot Options dialog -->
-    <string name="reboot_recovery">Recuperação</string>
+    <string name="reboot_recovery">Recovery</string>
     <!-- Button to reboot the phone into bootloader, within the Reboot Options dialog -->
     <string name="reboot_bootloader">Bootloader</string>
     <!-- Button to reboot the phone into bootmenu, within the Reboot Options dialog -->
-    <string name="reboot_bootmenu">Menu de boot</string>
+    <string name="reboot_bootmenu">Bootmenu</string>
     <!-- Button to reboot the phone into fastboot, within the Reboot Options dialog -->
     <string name="reboot_fastboot">Fastboot</string>
     <!-- Button to reboot the phone into download, within the Reboot Options dialog -->
     <string name="reboot_download">Download</string>
 
     <!-- Reboot Progress Dialog. This is shown if the user chooses to reboot the phone. -->
-    <string name="reboot_progress">Reiniciando\u2026</string>
+    <string name="reboot_progress">A reiniciar\u2026</string>
     <!-- Reboot Confirmation Dialog.  When the user chooses to reboot the phone, there will be a confirmation dialog.  This is the message. -->
-    <string name="reboot_confirm">Seu telefone vai reiniciar.</string>
+    <string name="reboot_confirm">O telemóvel vai reiniciar.</string>
 </resources>
