@@ -85,31 +85,8 @@ public class CdmaDataConnectionTracker extends DataConnectionTracker {
         "com.android.internal.telephony.cdma-data-stall";
 
 
-    /**
-     * Constants for the data connection activity:
-     * physical link down/up
-     */
-     private static final int DATA_CONNECTION_ACTIVE_PH_LINK_INACTIVE = 0;
-     private static final int DATA_CONNECTION_ACTIVE_PH_LINK_DOWN = 1;
-     private static final int DATA_CONNECTION_ACTIVE_PH_LINK_UP = 2;
-
-    private static final String[] mSupportedApnTypes = {
-            Phone.APN_TYPE_DEFAULT,
-            Phone.APN_TYPE_MMS,
-            Phone.APN_TYPE_DUN,
-            Phone.APN_TYPE_HIPRI };
-
-    private static final String[] mDefaultApnTypes = {
-            Phone.APN_TYPE_DEFAULT,
-            Phone.APN_TYPE_MMS,
-            Phone.APN_TYPE_HIPRI };
-
-    private String[] mDunApnTypes = {
-            Phone.APN_TYPE_DUN };
-
-    private static final int mDefaultApnId = DataConnectionTracker.APN_DEFAULT_ID;
-
-    /* Constructor */
+      
+      /* Constructor */
 
     CdmaDataConnectionTracker(CDMAPhone p) {
         super(p);
@@ -134,19 +111,6 @@ public class CdmaDataConnectionTracker extends DataConnectionTracker {
         createAllDataConnectionList();
         broadcastMessenger();
 
-        Context c = mCdmaPhone.getContext();
-        String[] t = c.getResources().getStringArray(
-                com.android.internal.R.array.config_cdma_dun_supported_types);
-        if (t != null && t.length > 0) {
-            ArrayList<String> temp = new ArrayList<String>();
-            for(int i=0; i< t.length; i++) {
-                if (!Phone.APN_TYPE_DUN.equalsIgnoreCase(t[i])) {
-                    temp.add(t[i]);
-                }
-            }
-            temp.add(0, Phone.APN_TYPE_DUN);
-            mDunApnTypes = temp.toArray(t);
-        }
 
     }
 

@@ -10747,6 +10747,7 @@ package android.media {
     field public static final int QUALITY_HIGH = 1; // 0x1
     field public static final int QUALITY_LOW = 0; // 0x0
     field public static final int QUALITY_QCIF = 2; // 0x2
+    field public static final int QUALITY_QVGA = 7; // 0x7
     field public static final int QUALITY_TIME_LAPSE_1080P = 1006; // 0x3ee
     field public static final int QUALITY_TIME_LAPSE_480P = 1004; // 0x3ec
     field public static final int QUALITY_TIME_LAPSE_720P = 1005; // 0x3ed
