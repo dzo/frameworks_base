@@ -2183,35 +2183,35 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
                 }
             }
             if (dcac == null) {
-                log("onDataSetupComplete: no connection to DC, handle as error"); 
+                log("onDataSetupComplete: no connection to DC, handle as error");
                 cause = DataConnection.FailCause.CONNECTION_TO_DATACONNECTIONAC_BROKEN;
                 handleError = true;
             } else {
-               DataConnection dc = apnContext.getDataConnection();       
-                   
+               DataConnection dc = apnContext.getDataConnection();
+
                if (DBG) {
-                    // TODO We may use apnContext.getApnSetting() directly 
-                    // instead of getWaitingApns().get(0) 
-                    String apnStr = "<unknown>"; 
-                     if (apnContext.getWaitingApns() != null 
-                             && !apnContext.getWaitingApns().isEmpty()){ 
+                    // TODO We may use apnContext.getApnSetting() directly
+                    // instead of getWaitingApns().get(0)
+                    String apnStr = "<unknown>";
+                     if (apnContext.getWaitingApns() != null
+                             && !apnContext.getWaitingApns().isEmpty()) {
                          apnStr = apnContext.getWaitingApns().get(0).apn;
-                      } 
+                      }
                      log("onDataSetupComplete: success apn=" + apnStr);
-                 }                                     
+                 }
                 ApnSetting apn = (ApnSetting)apnContext.getApnSetting();
-		if (apn.proxy != null && apn.proxy.length() != 0) {
-			try {
-				String port = apn.port;
-				if (TextUtils.isEmpty(port)) port = "8080";
-				ProxyProperties proxy = new ProxyProperties(apn.proxy,
-						Integer.parseInt(port), null);
-				dcac.setLinkPropertiesHttpProxySync(proxy);
-			} catch (NumberFormatException e) {
-				loge("onDataSetupComplete: NumberFormatException making ProxyProperties (" +
-						apn.port + "): " + e);
-			}
-		}
+                if (apn.proxy != null && apn.proxy.length() != 0) {
+                        try {
+                                String port = apn.port;
+                                if (TextUtils.isEmpty(port)) port = "8080";
+                                ProxyProperties proxy = new ProxyProperties(apn.proxy,
+                                                Integer.parseInt(port), null);
+                                dcac.setLinkPropertiesHttpProxySync(proxy);
+                        } catch (NumberFormatException e) {
+                                loge("onDataSetupComplete: NumberFormatException making ProxyProperties (" +
+                                                apn.port + "): " + e);
+                        }
+                }
                 // everything is setup
                 if(TextUtils.equals(apnContext.getApnType(),Phone.APN_TYPE_DEFAULT)) {
                     SystemProperties.set("gsm.defaultpdpcontext.active", "true");
