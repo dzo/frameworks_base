@@ -661,7 +661,6 @@ public class KeyguardUpdateMonitor {
 
     public void reportSimUnlocked(int subscription) {
         mSimState[subscription] = IccCard.State.READY;
-        handleSimStateChange(new SimArgs(mSimState[subscription]));
     }
 
     public boolean isKeyguardBypassEnabled() {

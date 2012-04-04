@@ -47,6 +47,9 @@ public class SignalStrength implements Parcelable {
         "none", "poor", "moderate", "good", "great"
     };
 
+    /** @hide */
+    public static final int INVALID_SNR = 0x7FFFFFFF;
+
     private int mGsmSignalStrength; // Valid values are (0-31, 99) as defined in TS 27.007 8.5
     private int mGsmBitErrorRate;   // bit error rate (0-7, 99) as defined in TS 27.007 8.5
     private int mCdmaDbm;   // This value is the RSSI value

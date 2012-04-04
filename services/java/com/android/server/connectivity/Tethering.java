@@ -58,6 +58,7 @@ import java.net.InetAddress;
 import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
+import java.net.Inet4Address;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -121,7 +122,7 @@ public class Tethering extends INetworkManagementEventObserver.Stub {
         "192.168.48.2", "192.168.48.254",
     };
 
-    private String[] mDnsServers;
+    private String[] mDefaultDnsServers;
     private static final String DNS_DEFAULT_SERVER1 = "8.8.8.8";
     private static final String DNS_DEFAULT_SERVER2 = "8.8.4.4";
 
@@ -174,9 +175,9 @@ public class Tethering extends INetworkManagementEventObserver.Stub {
         updateConfiguration();
 
         // TODO - remove and rely on real notifications of the current iface
-        mDnsServers = new String[2];
-        mDnsServers[0] = DNS_DEFAULT_SERVER1;
-        mDnsServers[1] = DNS_DEFAULT_SERVER2;
+        mDefaultDnsServers = new String[2];
+        mDefaultDnsServers[0] = DNS_DEFAULT_SERVER1;
+        mDefaultDnsServers[1] = DNS_DEFAULT_SERVER2;
     }
 
     void updateConfiguration() {
@@ -1279,7 +1280,7 @@ public class Tethering extends INetworkManagementEventObserver.Stub {
                     }
                 }
                 try {
-                    mNMService.setDnsForwarders(mDnsServers);
+                    mNMService.setDnsForwarders(mDefaultDnsServers);
                 } catch (Exception e) {
                     transitionTo(mSetDnsForwardersErrorState);
                     return false;
@@ -1417,7 +1418,29 @@ public class Tethering extends INetworkManagementEventObserver.Stub {
                     try {
                         linkProperties = mConnService.getLinkProperties(upType);
                     } catch (RemoteException e) { }
-                    if (linkProperties != null) iface = linkProperties.getInterfaceName();
+                    if (linkProperties != null) {
+                        iface = linkProperties.getInterfaceName();
+                        String[] dnsServers = mDefaultDnsServers;
+                        Collection<InetAddress> dnses = linkProperties.getDnses();
+                        if (dnses != null) {
+                            // we currently only handle IPv4
+                            ArrayList<InetAddress> v4Dnses =
+                                    new ArrayList<InetAddress>(dnses.size());
+                            for (InetAddress dnsAddress : dnses) {
+                                if (dnsAddress instanceof Inet4Address) {
+                                    v4Dnses.add(dnsAddress);
+                                }
+                            }
+                            if (v4Dnses.size() > 0) {
+                                dnsServers = NetworkUtils.makeStrings(v4Dnses);
+                            }
+                        }
+                        try {
+                            mNMService.setDnsForwarders(dnsServers);
+                        } catch (Exception e) {
+                            transitionTo(mSetDnsForwardersErrorState);
+                        }
+                    }
                 }
                 notifyTetheredOfNewUpstreamIface(iface);
             }
@@ -1468,11 +1491,12 @@ public class Tethering extends INetworkManagementEventObserver.Stub {
             boolean mTryCell = !WAIT_FOR_NETWORK_TO_SETTLE;
             @Override
             public void enter() {
+                turnOnMasterTetherSettings(); // may transition us out
+
                 mTryCell = !WAIT_FOR_NETWORK_TO_SETTLE; // better try something first pass
                                                         // or crazy tests cases will fail
                 chooseUpstreamType(mTryCell);
                 mTryCell = !mTryCell;
-                turnOnMasterTetherSettings(); // may transition us out
             }
             @Override
             public void exit() {
