@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006 The Android Open Source Project
- * Copyright (c) 2011 Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012 Code Aurora Forum. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -140,17 +140,17 @@ public final class MSimCdmaDataConnectionTracker extends CdmaDataConnectionTrack
                 DataConnectionAc dcac =
                     mDataConnectionAsyncChannels.get(conn.getDataConnectionId());
                 if (tearDown) {
-                     if (doAll){
-                    if (DBG) log("cleanUpConnection: teardown, conn.tearDownAll");
-                    conn.tearDownAll(reason, obtainMessage(EVENT_DISCONNECT_DONE,
+                    if (doAll){
+                        if (DBG) log("cleanUpConnection: teardown, conn.tearDownAll");
+                        conn.tearDownAll(reason, obtainMessage(EVENT_DISCONNECT_DONE,
                             conn.getDataConnectionId(), 0, reason));
-                   } else {
+                    } else {
                         if (DBG) log("cleanUpConnection: teardown, conn.tearDown");
-		           conn.tearDown(reason, obtainMessage(EVENT_DISCONNECT_DONE,
-		                 conn.getDataConnectionId(), 0, reason));
-		  }
+                        conn.tearDown(reason, obtainMessage(EVENT_DISCONNECT_DONE,
+                            conn.getDataConnectionId(), 0, reason));
+                    }
                     notificationDeferred = true;
-                    
+                    mDisconnectPendingCount++;
                 } else {
                     if (DBG) log("cleanUpConnection: !tearDown, call conn.resetSynchronously");
                     if (dcac != null) {
