@@ -280,10 +280,20 @@ status_t Composer::setFreezeTint(const sp<SurfaceComposerClient>& client,
     return NO_ERROR;
 }
 
-void SurfaceComposerClient::enableExternalDisplay(int disp_type, int enable)
+void SurfaceComposerClient::enableHDMIOutput(int enable)
 {
     sp<ISurfaceComposer> sm(getComposerService());
-    return sm->enableExternalDisplay(disp_type, enable);
+    return sm->enableHDMIOutput(enable);
+}
+
+void SurfaceComposerClient::setActionSafeWidthRatio(float asWidthRatio){
+    sp<ISurfaceComposer> sm(getComposerService());
+    return sm->setActionSafeWidthRatio(asWidthRatio);
+}
+
+void SurfaceComposerClient::setActionSafeHeightRatio(float asHeightRatio){
+    sp<ISurfaceComposer> sm(getComposerService());
+    return sm->setActionSafeHeightRatio(asHeightRatio);
 }
 
 status_t Composer::setOrientation(int orientation) {
