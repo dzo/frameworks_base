@@ -64,7 +64,6 @@ parent view.</p>
 hard-coded sizes, your views either use only the space required for that
 view or expand to fill the available space, respectively. For example:</p>
 
-{@sample development/samples/training/multiscreen/newsreader/res/layout/onepane_with_bar.xml all}
 
 <p>Notice how the sample uses <code>"wrap_content"</code> and <code>"match_parent"</code>
 for component sizes rather than specific dimensions. This allows the layout
@@ -161,12 +160,9 @@ to implement these layouts, you could have the following files:</p>
 
 <ul>
   <li><code>res/layout/main.xml</code>, single-pane (default) layout:
-
-{@sample development/samples/training/multiscreen/newsreader/res/layout/onepane.xml all}
 </li>
   <li><code>res/layout-large/main.xml</code>, two-pane layout:
 
-{@sample development/samples/training/multiscreen/newsreader/res/layout/twopanes.xml all}
 </li>
 </ul>
 
@@ -195,11 +191,9 @@ is 600 dp:</p>
 <ul>
   <li><code>res/layout/main.xml</code>, single-pane (default) layout:
 
-{@sample development/samples/training/multiscreen/newsreader/res/layout/onepane.xml all}
 </li>
   <li><code>res/layout-sw600dp/main.xml</code>, two-pane layout:
 
-{@sample development/samples/training/multiscreen/newsreader/res/layout/twopanes.xml all}
 </li>
 </ul>
 
@@ -294,37 +288,14 @@ configurations, the app uses layout aliases to match them to
 each configuration:</p>
 
 <p><code>res/layout/onepane.xml:</code></p>
-{@sample development/samples/training/multiscreen/newsreader/res/layout/onepane.xml all}
-
-<p><code>res/layout/onepane_with_bar.xml:</code></p>
-{@sample development/samples/training/multiscreen/newsreader/res/layout/onepane_with_bar.xml all}
-
-<p><code>res/layout/twopanes.xml</code>:</p>
-{@sample development/samples/training/multiscreen/newsreader/res/layout/twopanes.xml all}
-
-<p><code>res/layout/twopanes_narrow.xml</code>:</p>
-{@sample development/samples/training/multiscreen/newsreader/res/layout/twopanes_narrow.xml all}
 
 <p>Now that all possible layouts are defined, it's just a matter of mapping the correct layout to
 each configuration using the configuration qualifiers. You can now do it using the layout alias
 technique:</p>
 
 <p><code>res/values/layouts.xml</code>:</p>
-{@sample development/samples/training/multiscreen/newsreader/res/values/layouts.xml all}
-
-<p><code>res/values-sw600dp-land/layouts.xml</code>:</p>
-{@sample development/samples/training/multiscreen/newsreader/res/values-sw600dp-land/layouts.xml
-all}
-
-<p><code>res/values-sw600dp-port/layouts.xml</code>:</p>
-{@sample development/samples/training/multiscreen/newsreader/res/values-sw600dp-port/layouts.xml
-all}
 
 <p><code>res/values-large-land/layouts.xml</code>:</p>
-{@sample development/samples/training/multiscreen/newsreader/res/values-large-land/layouts.xml all}
-
-<p><code>res/values-large-port/layouts.xml</code>:</p>
-{@sample development/samples/training/multiscreen/newsreader/res/values-large-port/layouts.xml all}
 
 
 
