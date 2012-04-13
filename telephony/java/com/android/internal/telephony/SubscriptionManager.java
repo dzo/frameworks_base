@@ -1185,6 +1185,16 @@ public class SubscriptionManager extends Handler {
         logd("setDataSubscription: mCurrentDds = "
                 + mCurrentDds + " new subscription = " + subscription);
 
+        if (!getCurrentSubscriptionReadiness(SubscriptionId.values()[subscription])) {
+            loge("setDataSubscription: requested SUB:" + subscription
+                    + " is not yet activated, returning failure");
+            AsyncResult.forMessage(onCompleteMsg,
+                    false,
+                    new RuntimeException("Subscription not active"));
+            onCompleteMsg.sendToTarget();
+            return;
+        }
+
         mSetDdsCompleteMsg = onCompleteMsg;
 
         // If there is no set dds in progress disable the current
@@ -1385,6 +1395,10 @@ public class SubscriptionManager extends Handler {
 
     private void logd(String string) {
         Log.d(LOG_TAG, string);
+    }
+
+    private void loge(String string) {
+        Log.e(LOG_TAG, string);
     }
 
     public int getActiveSubscriptionsCount() {
