@@ -631,7 +631,7 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
             notifyOffApnsOfAvailability(Phone.REASON_DATA_ATTACHED);
         }
 
-        setupDataOnReadyApns(Phone.REASON_DATA_ATTACHED);
+        setupDataOnReadyApns(Phone.REASON_DATA_ATTACHED, false);
     }
 
     @Override
@@ -683,7 +683,7 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
         return allowed;
     }
 
-    private void setupDataOnReadyApns(String reason) {
+    private void setupDataOnReadyApns(String reason, boolean isPartialRetry) {
         // Stop reconnect alarms on all data connections pending
         // retry. Reset ApnContext state to IDLE.
         log("setupDataOnReadyApns: " + reason);
@@ -724,8 +724,8 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
             }
             if (apnContext.isReady()) {
                 if (apnContext.getState() == State.IDLE ||
-                        (apnContext.getState() == State.CONNECTED &&
-                                apnContext.getDataConnectionAc().getPartialSuccessStatusSync())) {
+                        (apnContext.getState() == State.CONNECTED && isPartialRetry)) {
+                    apnContext.setInPartialRetry(isPartialRetry);
                     apnContext.setReason(reason);
                     trySetupData(apnContext);
                 }
@@ -1149,12 +1149,10 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
             return true;
         }
 
-        apn.setInPartialRetry(apnContext.isInPartialRetry());
-
         Message msg = obtainMessage();
         msg.what = EVENT_DATA_SETUP_COMPLETE;
         msg.obj = apnContext;
-        dc.bringUp(msg, apn);
+        dc.bringUp(msg, apn, apnContext.isInPartialRetry());
 
         if (DBG) log("setupData: initing!");
         return true;
@@ -1179,7 +1177,7 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
         createAllApnList();
         cleanUpAllConnections(!isDisconnected, Phone.REASON_APN_CHANGED);
         if (isDisconnected) {
-            setupDataOnReadyApns(Phone.REASON_APN_CHANGED);
+            setupDataOnReadyApns(Phone.REASON_APN_CHANGED, false);
         }
     }
 
@@ -1955,7 +1953,7 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
             if (DBG) log("onRecordsLoaded: notifying data availability");
             notifyOffApnsOfAvailability(Phone.REASON_SIM_LOADED);
         }
-        setupDataOnReadyApns(Phone.REASON_SIM_LOADED);
+        setupDataOnReadyApns(Phone.REASON_SIM_LOADED, false);
     }
 
     @Override
@@ -2063,7 +2061,7 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
             retVal = onTrySetupData(apnContext);
         } else {
             if (msg.obj instanceof String) {
-                retVal = onTrySetupData((String)msg.obj);
+                retVal = onTrySetupData((String)msg.obj, msg.arg1 == Phone.DUALIP_PARTIAL_RETRY);
             } else {
                 loge("EVENT_TRY_SETUP request w/o apnContext or String");
             }
@@ -2072,9 +2070,9 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
     }
 
     // TODO: We shouldnt need this.
-    protected boolean onTrySetupData(String reason) {
-        if (DBG) log("onTrySetupData: reason=" + reason);
-        setupDataOnReadyApns(reason);
+    protected boolean onTrySetupData(String reason, boolean isPartialRetry) {
+        if (DBG) log("onTrySetupData: reason=" + reason + " isPartialRetry=" + isPartialRetry);
+        setupDataOnReadyApns(reason, isPartialRetry);
         return true;
     }
 
@@ -2089,7 +2087,7 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
 
         if (getDataOnRoamingEnabled() == false) {
             notifyOffApnsOfAvailability(Phone.REASON_ROAMING_OFF);
-            setupDataOnReadyApns(Phone.REASON_ROAMING_OFF);
+            setupDataOnReadyApns(Phone.REASON_ROAMING_OFF, false);
         } else {
             notifyDataConnection(Phone.REASON_ROAMING_OFF);
         }
@@ -2099,7 +2097,7 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
     protected void onRoamingOn() {
         if (getDataOnRoamingEnabled()) {
             if (DBG) log("onRoamingOn: setup data on roaming");
-            setupDataOnReadyApns(Phone.REASON_ROAMING_ON);
+            setupDataOnReadyApns(Phone.REASON_ROAMING_ON, false);
             notifyDataConnection(Phone.REASON_ROAMING_ON);
         } else {
             if (DBG) log("onRoamingOn: Tear down data connection on roaming.");
@@ -2370,7 +2368,7 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
         }
 
         if (SUPPORT_MPDN == false)
-            setupDataOnReadyApns(Phone.REASON_SINGLE_PDN_ARBITRATION);
+            setupDataOnReadyApns(Phone.REASON_SINGLE_PDN_ARBITRATION, false);
     }
 
     protected void onPollPdp() {
@@ -2406,7 +2404,7 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
             }
         } else {
             // reset reconnect timer
-            setupDataOnReadyApns(Phone.REASON_VOICE_CALL_ENDED);
+            setupDataOnReadyApns(Phone.REASON_VOICE_CALL_ENDED, false);
         }
     }
 
@@ -2803,7 +2801,7 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
             dcac = mDataConnectionAsyncChannels.get(dc.getDataConnectionId());
             if (dcac.getPartialSuccessStatusSync()) {
                 // Found at least one data connection with partial success, retry
-                sendMessage(obtainMessage(EVENT_TRY_SETUP_DATA, 0, 0,
+                sendMessage(obtainMessage(EVENT_TRY_SETUP_DATA, Phone.DUALIP_PARTIAL_RETRY, 0,
                         Phone.REASON_RAT_CHANGED));
                 resetAllRetryCounts();
                 if (DBG) log("Retry for DC with partial failure. DC:" + dc.toString());
