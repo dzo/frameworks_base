@@ -379,6 +379,7 @@ public class PhoneStatusBar extends StatusBar {
         mLocationController = new LocationController(mContext); // will post a notification
         mBatteryController = new BatteryController(mContext);
         mBatteryController.addIconView((ImageView)sb.findViewById(R.id.battery));
+	mBatteryController.addLabelView((TextView)sb.findViewById(R.id.battery_text));
         SignalClusterView signalCluster;
         MSimSignalClusterView mSimSignalCluster;
 
