@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2009 The Android Open Source Project
- * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,11 +24,13 @@
 #include <utils/threads.h>
 #include <utils/List.h>
 #include <utils/Vector.h>
+#include <fcntl.h>
 #include <pthread.h>
 #include <binder/IServiceManager.h>
 #include <linux/unistd.h>
 #include <include/linux/msm_audio.h>
 #include <include/linux/ion.h>
+
 #include <include/TimedEventQueue.h>
 #include <binder/BinderService.h>
 #include <binder/MemoryDealer.h>
@@ -36,6 +38,8 @@
 
 // Pause timeout = 3sec
 #define LPA_PAUSE_TIMEOUT_USEC 3000000
+#define MEM_BUFFER_SIZE 524288
+#define MEM_BUFFER_COUNT 4
 
 namespace android {
 
@@ -81,6 +85,7 @@ private:
 
     int afd;
     int efd;
+    int ionfd;
     int sessionId;
     uint32_t bytesToWrite;
     bool isPaused;
@@ -121,23 +126,30 @@ private:
 
     //Structure to hold ion buffer information
     class BuffersAllocated {
+    /* overload BuffersAllocated constructor to support both ion and pmem memory allocation */
     public:
         BuffersAllocated(void *buf1, void *buf2, int32_t nSize, int32_t fd) :
-        localBuf(buf1), pmemBuf(buf2), pmemBufsize(nSize), pmemFd(fd)
+        localBuf(buf1), memBuf(buf2), memBufsize(nSize), memFd(fd)
         {}
+        BuffersAllocated(void *buf1, void *buf2, int32_t nSize, int32_t share_fd, struct ion_handle *handle) :
+        ion_handle(handle), localBuf(buf1), memBuf(buf2), memBufsize(nSize), memFd(share_fd)
+        {}
+        struct ion_handle *ion_handle;
         void* localBuf;
-        void* pmemBuf;
-        int32_t pmemBufsize;
-        int32_t pmemFd;
+        void* memBuf;
+        int32_t memBufsize;
+        int32_t memFd;
         uint32_t bytesToWrite;
     };
-    List<BuffersAllocated> pmemBuffersRequestQueue;
-    List<BuffersAllocated> pmemBuffersResponseQueue;
+    void audio_register_memory();
+    void memBufferDeAlloc();
+    void *memBufferAlloc(int32_t nSize, int32_t *mem_fd);
+
+    List<BuffersAllocated> memBuffersRequestQueue;
+    List<BuffersAllocated> memBuffersResponseQueue;
     List<BuffersAllocated> bufPool;
     List<BuffersAllocated> effectsQueue;
 
-    void *pmemBufferAlloc(int32_t nSize, int32_t *pmem_fd);
-    void pmemBufferDeAlloc();
 
     //Declare all the threads
     pthread_t eventThread;
@@ -161,8 +173,8 @@ private:
     bool a2dpNotificationThreadAlive;
 
     //Declare the condition Variables and Mutex
-    pthread_mutex_t pmem_request_mutex;
-    pthread_mutex_t pmem_response_mutex;
+    pthread_mutex_t mem_request_mutex;
+    pthread_mutex_t mem_response_mutex;
     pthread_mutex_t decoder_mutex;
     pthread_mutex_t event_mutex;
     pthread_mutex_t a2dp_mutex;
