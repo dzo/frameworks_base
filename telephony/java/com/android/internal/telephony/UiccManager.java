@@ -43,6 +43,7 @@ public class UiccManager extends Handler {
     private static final int EVENT_ICC_STATUS_CHANGED = 1;
     private static final int EVENT_GET_ICC_STATUS_DONE = 2;
     private static final int EVENT_RADIO_UNAVAILABLE = 3;
+    private static final int EVENT_UICC_MGR_INIT_COMPLETE = 4;
     private static UiccManager mInstance;
 
     private Context mContext;
@@ -87,9 +88,10 @@ public class UiccManager extends Handler {
             mCi[i].registerForNotAvailable(this, EVENT_RADIO_UNAVAILABLE, index);
             // TODO remove this once modem correctly notifies the unsols
             mCi[i].registerForOn(this, EVENT_ICC_STATUS_CHANGED, index);
-            mCatService[i] = new CatService( mCi[i], mContext, i);
 
         }
+        Message msg = this.obtainMessage(EVENT_UICC_MGR_INIT_COMPLETE);
+        msg.sendToTarget();
     }
 
     @Override
@@ -115,6 +117,16 @@ public class UiccManager extends Handler {
             case EVENT_RADIO_UNAVAILABLE:
                 Log.d(LOG_TAG, "EVENT_RADIO_UNAVAILABLE on index " + index);
                 disposeCard(index);
+                break;
+            case EVENT_UICC_MGR_INIT_COMPLETE:
+                Log.d(LOG_TAG, "INIT COMPLETED ");
+                for (int i = 0; i < mCi.length; i++) {
+                    Log.d(LOG_TAG, "Creating CatService on " + i);
+                    mCatService[i] = new CatService( mCi[i], mContext, i);
+                    if (mCatService[i] == null) {
+                        Log.e(LOG_TAG, "Couldn't create CatService on " + i);
+                    }
+                }
                 break;
             default:
                 Log.e(LOG_TAG, " Unknown Event " + msg.what);
