@@ -865,7 +865,7 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
 
         for (ApnContext apnContext : mApnContexts.values()) {
             apnContext.setReason(reason);
-            cleanUpConnection(tearDown, apnContext);
+            cleanUpConnection(tearDown, apnContext, true);
         }
 
         stopNetStatPoll();
@@ -891,7 +891,7 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
         cleanUpAllConnections(true, cause);
     }
 
-    protected void cleanUpConnection(boolean tearDown, ApnContext apnContext) {
+    protected void cleanUpConnection(boolean tearDown, ApnContext apnContext, boolean doAll) {
 
         if (apnContext == null) {
             if (DBG) log("cleanUpConnection: apn context is null");
@@ -915,7 +915,7 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
                 // Connection is still there. Try to clean up.
                 if (dcac != null) {
                     if (apnContext.getState() != State.DISCONNECTING) {
-                        boolean disconnectAll = false;
+                        boolean disconnectAll = doAll;
                         if (Phone.APN_TYPE_DUN.equals(apnContext.getApnType())) {
                             DataProfile dunSetting = fetchDunApn();
                             if (dunSetting != null &&
@@ -1428,7 +1428,7 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
 
         // Cleanup those dropped connections
         for (ApnContext apnContext : apnsToCleanup) {
-            cleanUpConnection(true, apnContext);
+            cleanUpConnection(true, apnContext, false);
         }
 
         if (DBG) log("onDataStateChanged(ar): X");
@@ -1596,7 +1596,7 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
 
                 // Found a lower priority call, disconnect it.
                 apnContextEntry.setReason(Phone.REASON_SINGLE_PDN_ARBITRATION);
-                cleanUpConnection(true, apnContextEntry);
+                cleanUpConnection(true, apnContextEntry, false);
                 break;
             }
         }
@@ -2006,7 +2006,7 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
         }
         apnContext.setEnabled(enabled);
         apnContext.setDependencyMet(met);
-        if (cleanup) cleanUpConnection(true, apnContext);
+        if (cleanup) cleanUpConnection(true, apnContext, false);
         if (trySetup) trySetupData(apnContext);
     }
 
@@ -2123,7 +2123,7 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
         }
 
         if (getOverallState() != State.IDLE) {
-            cleanUpConnection(true, null);
+            cleanUpConnection(true, null, false);
         }
     }
 
@@ -2414,7 +2414,7 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
         ApnContext apnContext = mApnContexts.get(apnIdToType(apnId));
         if (apnContext != null) {
             apnContext.setReason(reason);
-            cleanUpConnection(tearDown, apnContext);
+            cleanUpConnection(tearDown, apnContext, false);
         }
     }
 
@@ -2774,7 +2774,7 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
                 boolean tearDown = (msg.arg1 == 0) ? false : true;
                 if (DBG) log("EVENT_CLEAN_UP_CONNECTION tearDown=" + tearDown);
                 if (msg.obj instanceof ApnContext) {
-                    cleanUpConnection(tearDown, (ApnContext)msg.obj);
+                    cleanUpConnection(tearDown, (ApnContext)msg.obj, false);
                 } else {
                     loge("EVENT_CLEAN_UP_CONNECTION request w/o apn context");
                 }
