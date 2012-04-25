@@ -708,7 +708,7 @@ public abstract class DataConnectionTracker extends Handler {
     protected abstract void gotoIdleAndNotifyDataConnection(String reason);
 
     protected abstract DataConnection getActiveDataConnection(String type);
-    protected abstract boolean onTrySetupData(String reason);
+    protected abstract boolean onTrySetupData(String reason, boolean isPartialRetry);
     protected abstract void onRoamingOff();
     protected abstract void onRoamingOn();
     protected abstract void onRadioAvailable();
@@ -753,7 +753,7 @@ public abstract class DataConnectionTracker extends Handler {
                 if (msg.obj instanceof String) {
                     reason = (String) msg.obj;
                 }
-                onTrySetupData(reason);
+                onTrySetupData(reason, false);
                 break;
 
             case EVENT_DATA_STALL_ALARM:
@@ -1279,7 +1279,7 @@ public abstract class DataConnectionTracker extends Handler {
             if (enabled) {
                 log("onSetInternalDataEnabled: changed to enabled, try to setup data call");
                 resetAllRetryCounts();
-                onTrySetupData(Phone.REASON_DATA_ENABLED);
+                onTrySetupData(Phone.REASON_DATA_ENABLED, false);
             } else {
                 log("onSetInternalDataEnabled: changed to disabled, cleanUpAllConnections");
                 cleanUpAllConnections(null);
@@ -1305,7 +1305,7 @@ public abstract class DataConnectionTracker extends Handler {
                 if (prevEnabled != getAnyDataEnabled()) {
                     if (!prevEnabled) {
                         resetAllRetryCounts();
-                        onTrySetupData(Phone.REASON_DATA_ENABLED);
+                        onTrySetupData(Phone.REASON_DATA_ENABLED, false);
                     } else {
                         onCleanUpAllConnections(Phone.REASON_DATA_DISABLED);
                     }
@@ -1325,7 +1325,7 @@ public abstract class DataConnectionTracker extends Handler {
                 if (prevEnabled != getAnyDataEnabled()) {
                     if (!prevEnabled) {
                         resetAllRetryCounts();
-                        onTrySetupData(Phone.REASON_DATA_ENABLED);
+                        onTrySetupData(Phone.REASON_DATA_ENABLED, false);
                     } else {
                         onCleanUpAllConnections(Phone.REASON_DATA_DISABLED);
                     }

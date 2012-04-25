@@ -368,7 +368,7 @@ public class CdmaDataConnectionTracker extends DataConnectionTracker {
         Message msg = obtainMessage();
         msg.what = EVENT_DATA_SETUP_COMPLETE;
         msg.obj = reason;
-        conn.bringUp(msg, mActiveApn);
+        conn.bringUp(msg, mActiveApn, false);
 
         setState(State.INITING);
         notifyDataConnection(reason);
@@ -619,7 +619,7 @@ public class CdmaDataConnectionTracker extends DataConnectionTracker {
      * @override com.android.internal.telephony.DataConnectionTracker
      */
     @Override
-    protected boolean onTrySetupData(String reason) {
+    protected boolean onTrySetupData(String reason, boolean isPartialRetry) {
         return trySetupData(reason);
     }
 
