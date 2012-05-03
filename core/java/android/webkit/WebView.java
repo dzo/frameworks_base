@@ -4524,9 +4524,7 @@ public class WebView extends AbsoluteLayout
             selectionDone();
         }
         mOrientation = newConfig.orientation;
-        if (mWebViewCore != null && !mBlockWebkitViewMessages) {
-            mWebViewCore.sendMessage(EventHub.CLEAR_CONTENT);
-        }
+        contentInvalidateAll();
     }
 
     /**
