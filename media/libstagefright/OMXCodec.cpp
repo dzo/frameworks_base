@@ -5108,6 +5108,7 @@ status_t OMXCodec::read(
     if (seeking) {
         while (mState == RECONFIGURING) {
             if ((err = waitForBufferFilled_l()) != OK) {
+                setState(ERROR);
                 return err;
             }
         }
@@ -5151,6 +5152,7 @@ status_t OMXCodec::read(
 
         while (mSeekTimeUs >= 0) {
             if ((err = waitForBufferFilled_l()) != OK) {
+                setState(ERROR);
                 return err;
             }
         }
@@ -5199,6 +5201,7 @@ status_t OMXCodec::read(
     }
     while (mState != ERROR && !mNoMoreOutputData && mFilledBuffers.empty()) {
         if ((err = waitForBufferFilled_l()) != OK) {
+            setState(ERROR);
             return err;
         }
     }
