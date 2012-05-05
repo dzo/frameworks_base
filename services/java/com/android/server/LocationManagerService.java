@@ -561,7 +561,7 @@ public class LocationManagerService extends ILocationManager.Stub implements Run
 
         if (mGeoFencerPackageName != null &&
                 pm.resolveService(new Intent(mGeoFencerPackageName), 0) != null) {
-            mGeoFencer = new GeoFencerProxy(mContext, mGeoFencerPackageName);
+            mGeoFencer = GeoFencerProxy.getGeoFencerProxy(mContext, mGeoFencerPackageName);
         } else {
             mGeoFencer = new ProximityAlerter();
         }
@@ -1552,6 +1552,15 @@ public class LocationManagerService extends ILocationManager.Stub implements Run
             mLocation.setLongitude(longitude);
         }
 
+        public ProximityAlert(GeoFenceParams geofence) {
+            super(geofence.mUid, geofence.mLatitude, geofence.mLongitude,
+                  geofence.mRadius, geofence.mExpiration, geofence.mIntent);
+
+            mLocation = new Location("");
+            mLocation.setLatitude(geofence.mLatitude);
+            mLocation.setLongitude(geofence.mLongitude);
+        }
+
         boolean isInProximity(double latitude, double longitude, float accuracy) {
             Location loc = new Location("");
             loc.setLatitude(latitude);
@@ -1583,6 +1592,10 @@ public class LocationManagerService extends ILocationManager.Stub implements Run
                  PendingIntent intent) {
             super.add((GeoFenceParams)new ProximityAlert(latitude, longitude,
                                                    radius, expiration, intent));
+        }
+        @Override
+        public void add(GeoFenceParams geofence) {
+            super.add((GeoFenceParams)new ProximityAlert(geofence));
         }
 
         @Override
@@ -2081,15 +2094,15 @@ public class LocationManagerService extends ILocationManager.Stub implements Run
             //Settings update only for Hybrid Provider
             LocationProviderInterface p = mProvidersByName.get(LocationManager.HYBRID_PROVIDER);
             if(p != null) {
-                    if (LOCAL_LOGV) {
-                      Slog.d(TAG,  "Battery.update invoked for provider: " + p.getName());
-                    }
+                if (LOCAL_LOGV) {
+                    Slog.d(TAG,  "Battery.update invoked for provider: " + p.getName());
+                }
 
-                    if(Intent.ACTION_POWER_CONNECTED.equals(action)) {
-                        p.updateBatteryStatus(true);
-                    } else if(Intent.ACTION_POWER_DISCONNECTED.equals(action)) {
-                        p.updateBatteryStatus(false);
-                    }
+                if(Intent.ACTION_POWER_CONNECTED.equals(action)) {
+                    p.updateBatteryStatus(true);
+                } else if(Intent.ACTION_POWER_DISCONNECTED.equals(action)) {
+                    p.updateBatteryStatus(false);
+                }
             }
         }
     };
@@ -2288,6 +2301,14 @@ public class LocationManagerService extends ILocationManager.Stub implements Run
             if (mProvidersByName.get(name) != null) {
                 throw new IllegalArgumentException("Provider \"" + name + "\" already exists");
             }
+
+            PackageManager pm = mContext.getPackageManager();
+            if (mGeoFencerPackageName != null &&
+                pm.resolveService(new Intent(mGeoFencerPackageName), 0) != null) {
+                GeoFencerBase oldFencer = mGeoFencer;
+                mGeoFencer = new ProximityAlerter();
+                mGeoFencer.transferService(oldFencer);
+            }
             addProvider(provider);
             mMockProviders.put(name, provider);
             mLastKnownLocation.put(name, null);
@@ -2316,6 +2337,14 @@ public class LocationManagerService extends ILocationManager.Stub implements Run
             } else if (LocationManager.HYBRID_PROVIDER.equals(provider) &&
                     mHybridLocationProvider != null) {
                 addProvider(mHybridLocationProvider);
+            }
+
+            PackageManager pm = mContext.getPackageManager();
+            if (mGeoFencerPackageName != null &&
+                pm.resolveService(new Intent(mGeoFencerPackageName), 0) != null) {
+                GeoFencerBase oldFencer = mGeoFencer;
+                mGeoFencer = GeoFencerProxy.getGeoFencerProxy(mContext, mGeoFencerPackageName);
+                mGeoFencer.transferService(oldFencer);
             }
             mLastKnownLocation.put(provider, null);
             updateProvidersLocked();
