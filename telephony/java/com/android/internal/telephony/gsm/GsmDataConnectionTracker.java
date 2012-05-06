@@ -176,15 +176,20 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
         }
 
         if (dcac != null) {
-            for (ApnContext apnContext : dcac.getApnListSync()) {
-                apnContext.setReason(reason);
-                if (apnContext.getState() == State.FAILED) {
-                    apnContext.setState(State.IDLE);
+            // If ReconnectIntent in the data connection is null, then it indicates that
+            // alarm was cancelled. This method was invoked due to a possible race condition.
+            // If Reconnect alarm is cancelled, do not try to setup data call.
+            if (dcac.getReconnectIntentSync() != null) {
+                for (ApnContext apnContext : dcac.getApnListSync()) {
+                    apnContext.setReason(reason);
+                    if (apnContext.getState() == State.FAILED) {
+                        apnContext.setState(State.IDLE);
+                    }
+                    sendMessage(obtainMessage(EVENT_TRY_SETUP_DATA, partialRetry, 0, apnContext));
                 }
-                sendMessage(obtainMessage(EVENT_TRY_SETUP_DATA, partialRetry, 0, apnContext));
+                // Alram had expired. Clear pending intent recorded on the DataConnection.
+                dcac.setReconnectIntentSync(null);
             }
-            // Alram had expired. Clear pending intent recorded on the DataConnection.
-            dcac.setReconnectIntentSync(null);
         }
     }
 
@@ -2800,7 +2805,11 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
         for (DataConnection dc : mDataConnections.values()) {
             dcac = mDataConnectionAsyncChannels.get(dc.getDataConnectionId());
             if (dcac.getPartialSuccessStatusSync()) {
-                // Found at least one data connection with partial success, retry
+                // Found at least one data connection with partial success, if retry timer
+                // is running, cancel it and retry immediately.
+                if (dcac.getReconnectIntentSync() != null) {
+                    cancelReconnectAlarm(dcac);
+                }
                 sendMessage(obtainMessage(EVENT_TRY_SETUP_DATA, Phone.DUALIP_PARTIAL_RETRY, 0,
                         Phone.REASON_RAT_CHANGED));
                 resetAllRetryCounts();
