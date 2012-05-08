@@ -1145,14 +1145,6 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
             apnContext.setState(State.INITING);
             mPhone.notifyDataConnection(apnContext.getReason(), apnContext.getApnType());
         }
-        // If reconnect alarm is active on this DataConnection, wait for the alarm being
-        // fired so that we don't disruppt data retry pattern engaged.
-        if (apnContext.getDataConnectionAc().getReconnectIntentSync() != null) {
-            if (DBG) log("setupData: data reconnection pending");
-            apnContext.setState(State.FAILED);
-            mPhone.notifyDataConnection(apnContext.getReason(), apnContext.getApnType());
-            return true;
-        }
 
         Message msg = obtainMessage();
         msg.what = EVENT_DATA_SETUP_COMPLETE;
