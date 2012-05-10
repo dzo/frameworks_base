@@ -2004,6 +2004,8 @@ public class GsmDataConnectionTracker extends DataConnectionTracker {
         apnContext.setEnabled(enabled);
         apnContext.setDependencyMet(met);
         if (cleanup) cleanUpConnection(true, apnContext, false);
+        // reset the partial retry state of the Apn
+        apnContext.setInPartialRetry(false);
         if (trySetup) trySetupData(apnContext);
     }
 
