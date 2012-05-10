@@ -1907,9 +1907,9 @@ static jboolean indicateNative(JNIEnv *env, jobject object,
 
 static jboolean discoverPrimaryResponseNative(JNIEnv *env, jobject object,
                                               jstring uuid,
+                                              jstring errorString,
                                               jint handle,
                                               jint end,
-                                              jint status,
                                               int nativeData) {
 #ifdef HAVE_BLUETOOTH
     LOGV("%s", __FUNCTION__);
@@ -1920,7 +1920,7 @@ static jboolean discoverPrimaryResponseNative(JNIEnv *env, jobject object,
         jboolean isCopy;
         const char *c_uuid;
 
-        if (!status) {
+        if (!errorString) {
             reply = dbus_message_new_method_return(msg);
             c_uuid = env->GetStringUTFChars(uuid, &isCopy);
             dbus_message_append_args(reply,
@@ -1929,13 +1929,15 @@ static jboolean discoverPrimaryResponseNative(JNIEnv *env, jobject object,
                                  DBUS_TYPE_STRING, &c_uuid,
                                  DBUS_TYPE_INVALID);
         } else {
-            LOGE("%s: discoverPrimaryResponse status is false", __FUNCTION__);
+            const char *c_errorString = env->GetStringUTFChars(errorString, NULL);
+            LOGE("%s: status %s", __FUNCTION__, c_errorString);
             reply = dbus_message_new_error(msg,
-                    DBUS_ERROR_FAILED, "GATT_ATTRIBUTE_NOT_FOUND");
+                    DBUS_ERROR_FAILED, c_errorString);
+            env->ReleaseStringUTFChars(errorString, c_errorString);
         }
 
         if (!reply) {
-            LOGE("%s: Cannot create message reply to discover primary "
+            LOGE("%s: Cannot create message reply to "
                  "D-Bus\n", __FUNCTION__);
             dbus_message_unref(msg);
             return JNI_FALSE;
@@ -1954,9 +1956,9 @@ static jboolean discoverPrimaryResponseNative(JNIEnv *env, jobject object,
 }
 
 static jboolean discoverPrimaryByUuidResponseNative(JNIEnv *env, jobject object,
+                                              jstring errorString,
                                               jint handle,
                                               jint end,
-                                              jint status,
                                               int nativeData) {
 #ifdef HAVE_BLUETOOTH
     LOGV("%s", __FUNCTION__);
@@ -1965,20 +1967,22 @@ static jboolean discoverPrimaryByUuidResponseNative(JNIEnv *env, jobject object,
         DBusMessage *msg = (DBusMessage *)nativeData;
         DBusMessage *reply;
 
-        if (!status) {
+        if (!errorString) {
             reply = dbus_message_new_method_return(msg);
             dbus_message_append_args(reply,
                                  DBUS_TYPE_UINT16, &handle,
                                  DBUS_TYPE_UINT16, &end,
                                  DBUS_TYPE_INVALID);
         } else {
-            LOGE("%s: discoverPrimaryByUuidResponseNative status is false", __FUNCTION__);
+            const char *c_errorString = env->GetStringUTFChars(errorString, NULL);
+            LOGE("%s: status %s", __FUNCTION__, c_errorString);
             reply = dbus_message_new_error(msg,
-                    DBUS_ERROR_FAILED, "GATT_ATTRIBUTE_NOT_FOUND");
+                    DBUS_ERROR_FAILED, c_errorString);
+            env->ReleaseStringUTFChars(errorString, c_errorString);
         }
 
         if (!reply) {
-            LOGE("%s: Cannot create message reply to discover primary "
+            LOGE("%s: Cannot create message reply to "
                  "D-Bus\n", __FUNCTION__);
             dbus_message_unref(msg);
             return JNI_FALSE;
@@ -1995,10 +1999,10 @@ static jboolean discoverPrimaryByUuidResponseNative(JNIEnv *env, jobject object,
 
 static jboolean findIncludedResponseNative(JNIEnv *env, jobject object,
                                            jstring uuid,
+                                           jstring errorString,
                                            jint handle,
                                            jint start,
                                            jint end,
-                                           jint status,
                                            int nativeData) {
 #ifdef HAVE_BLUETOOTH
     LOGV("%s", __FUNCTION__);
@@ -2009,7 +2013,7 @@ static jboolean findIncludedResponseNative(JNIEnv *env, jobject object,
         jboolean isCopy;
         const char *c_uuid;
 
-        if (!status) {
+        if (!errorString) {
             reply = dbus_message_new_method_return(msg);
             c_uuid = env->GetStringUTFChars(uuid, &isCopy);
 
@@ -2020,13 +2024,15 @@ static jboolean findIncludedResponseNative(JNIEnv *env, jobject object,
                                  DBUS_TYPE_STRING, &c_uuid,
                                  DBUS_TYPE_INVALID);
         } else {
-            LOGE("%s: findIncludedResponseNative status is false", __FUNCTION__);
+            const char *c_errorString = env->GetStringUTFChars(errorString, NULL);
+            LOGE("%s: status %s", __FUNCTION__, c_errorString);
             reply = dbus_message_new_error(msg,
-                    DBUS_ERROR_FAILED, "GATT_ATTRIBUTE_NOT_FOUND");
+                    DBUS_ERROR_FAILED, c_errorString);
+            env->ReleaseStringUTFChars(errorString, c_errorString);
         }
 
         if (!reply) {
-            LOGE("%s: Cannot create message reply to discover primary "
+            LOGE("%s: Cannot create message reply to "
                  "D-Bus\n", __FUNCTION__);
             dbus_message_unref(msg);
             return JNI_FALSE;
@@ -2046,10 +2052,10 @@ static jboolean findIncludedResponseNative(JNIEnv *env, jobject object,
 
 static jboolean discoverCharacteristicsResponseNative(JNIEnv *env, jobject object,
                                            jstring uuid,
+                                           jstring errorString,
                                            jint handle,
                                            jint property,
                                            jint valueHandle,
-                                           jint status,
                                            int nativeData) {
 #ifdef HAVE_BLUETOOTH
     LOGV("%s", __FUNCTION__);
@@ -2060,7 +2066,7 @@ static jboolean discoverCharacteristicsResponseNative(JNIEnv *env, jobject objec
         jboolean isCopy;
         const char *c_uuid;
 
-        if (!status) {
+        if (!errorString) {
             reply = dbus_message_new_method_return(msg);
             c_uuid = env->GetStringUTFChars(uuid, &isCopy);
             dbus_message_append_args(reply,
@@ -2070,13 +2076,15 @@ static jboolean discoverCharacteristicsResponseNative(JNIEnv *env, jobject objec
                                  DBUS_TYPE_STRING, &c_uuid,
                                  DBUS_TYPE_INVALID);
         } else {
-            LOGE("%s: discoverCharacteristicsResponseNative status is false", __FUNCTION__);
+            const char *c_errorString = env->GetStringUTFChars(errorString, NULL);
+            LOGE("%s: status %s", __FUNCTION__, c_errorString);
             reply = dbus_message_new_error(msg,
-                    DBUS_ERROR_FAILED, "GATT_ATTRIBUTE_NOT_FOUND");
+                    DBUS_ERROR_FAILED, c_errorString);
+            env->ReleaseStringUTFChars(errorString, c_errorString);
         }
 
         if (!reply) {
-            LOGE("%s: Cannot create message reply to discover primary "
+            LOGE("%s: Cannot create message reply to "
                  "D-Bus\n", __FUNCTION__);
             dbus_message_unref(msg);
             return JNI_FALSE;
@@ -2096,8 +2104,8 @@ static jboolean discoverCharacteristicsResponseNative(JNIEnv *env, jobject objec
 
 static jboolean discoverCharacteristicDescriptorResponseNative(JNIEnv *env, jobject object,
                                            jstring uuid,
+                                           jstring errorString,
                                            jint handle,
-                                           jint status,
                                            int nativeData) {
 #ifdef HAVE_BLUETOOTH
     LOGV("%s", __FUNCTION__);
@@ -2108,7 +2116,7 @@ static jboolean discoverCharacteristicDescriptorResponseNative(JNIEnv *env, jobj
         jboolean isCopy;
         const char *c_uuid;
 
-        if (!status) {
+        if (!errorString) {
             reply = dbus_message_new_method_return(msg);
             c_uuid = env->GetStringUTFChars(uuid, &isCopy);
             dbus_message_append_args(reply,
@@ -2116,13 +2124,15 @@ static jboolean discoverCharacteristicDescriptorResponseNative(JNIEnv *env, jobj
                                  DBUS_TYPE_STRING, &c_uuid,
                                  DBUS_TYPE_INVALID);
         } else {
-            LOGE("%s: discoverCharacteristicDescriptorResponseNative status is false", __FUNCTION__);
+            const char *c_errorString = env->GetStringUTFChars(errorString, NULL);
+            LOGE("%s: status %s", __FUNCTION__, c_errorString);
             reply = dbus_message_new_error(msg,
-                    DBUS_ERROR_FAILED, "GATT_ATTRIBUTE_NOT_FOUND");
+                    DBUS_ERROR_FAILED, c_errorString);
+            env->ReleaseStringUTFChars(errorString, c_errorString);
         }
 
         if (!reply) {
-            LOGE("%s: Cannot create message reply to discover primary "
+            LOGE("%s: Cannot create message reply to "
                  "D-Bus\n", __FUNCTION__);
             dbus_message_unref(msg);
             return JNI_FALSE;
@@ -2142,10 +2152,10 @@ static jboolean discoverCharacteristicDescriptorResponseNative(JNIEnv *env, jobj
 
 static jboolean readByTypeResponseNative(JNIEnv *env, jobject object,
                                          jstring uuid,
+                                         jstring errorString,
                                          jint handle,
                                          jbyteArray payload,
                                          jint cnt,
-                                         jint status,
                                          int nativeData) {
 #ifdef HAVE_BLUETOOTH
     LOGV("%s", __FUNCTION__);
@@ -2156,7 +2166,7 @@ static jboolean readByTypeResponseNative(JNIEnv *env, jobject object,
         jboolean isCopy;
         jbyte *payload_ptr;
 
-        if (!status) {
+        if (!errorString) {
             reply = dbus_message_new_method_return(msg);
             payload_ptr = env->GetByteArrayElements(payload, &isCopy);
             dbus_message_append_args(reply,
@@ -2164,13 +2174,15 @@ static jboolean readByTypeResponseNative(JNIEnv *env, jobject object,
                                  DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE, &payload_ptr, cnt,
                                  DBUS_TYPE_INVALID);
         } else {
-            LOGE("%s: discoverCharacteristicDescriptorResponseNative status is false", __FUNCTION__);
+            const char *c_errorString = env->GetStringUTFChars(errorString, NULL);
+            LOGE("%s: status %s", __FUNCTION__, c_errorString);
             reply = dbus_message_new_error(msg,
-                    DBUS_ERROR_FAILED, "GATT_ATTRIBUTE_NOT_FOUND");
+                    DBUS_ERROR_FAILED, c_errorString);
+            env->ReleaseStringUTFChars(errorString, c_errorString);
         }
 
         if (!reply) {
-            LOGE("%s: Cannot create message reply to discover primary "
+            LOGE("%s: Cannot create message reply to "
                  "D-Bus\n", __FUNCTION__);
             dbus_message_unref(msg);
             return JNI_FALSE;
@@ -2190,9 +2202,9 @@ static jboolean readByTypeResponseNative(JNIEnv *env, jobject object,
 
 static jboolean readResponseNative(JNIEnv *env, jobject object,
                                    jstring uuid,
+                                   jstring errorString,
                                    jbyteArray payload,
                                    jint cnt,
-                                   jint status,
                                    int nativeData) {
 #ifdef HAVE_BLUETOOTH
     LOGV("%s", __FUNCTION__);
@@ -2205,7 +2217,7 @@ static jboolean readResponseNative(JNIEnv *env, jobject object,
         jbyte *payload_ptr = NULL;
         const char *c_uuid = NULL;
 
-        if (!status) {
+        if (!errorString) {
             reply = dbus_message_new_method_return(msg);
             if (payload != NULL)
                 payload_ptr = env->GetByteArrayElements(payload, &isCopy);
@@ -2216,9 +2228,11 @@ static jboolean readResponseNative(JNIEnv *env, jobject object,
                                  DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE, &payload_ptr, cnt,
                                  DBUS_TYPE_INVALID);
         } else {
-            LOGE("%s: readResponseNative status is false", __FUNCTION__);
+            const char *c_errorString = env->GetStringUTFChars(errorString, NULL);
+            LOGE("%s: status %s", __FUNCTION__, c_errorString);
             reply = dbus_message_new_error(msg,
-                    DBUS_ERROR_FAILED, "GATT_ATTRIBUTE_NOT_FOUND");
+                    DBUS_ERROR_FAILED, c_errorString);
+            env->ReleaseStringUTFChars(errorString, c_errorString);
         }
 
         if (!reply) {
@@ -2247,7 +2261,7 @@ static jboolean readResponseNative(JNIEnv *env, jobject object,
 
 static jboolean writeResponseNative(JNIEnv *env, jobject object,
                                    jstring uuid,
-                                   jint status,
+                                   jstring errorString,
                                    int nativeData) {
 #ifdef HAVE_BLUETOOTH
     LOGV("%s", __FUNCTION__);
@@ -2258,7 +2272,7 @@ static jboolean writeResponseNative(JNIEnv *env, jobject object,
         jboolean isUuidCopy;
         const char *c_uuid = NULL;
 
-        if (!status) {
+        if (!errorString) {
             reply = dbus_message_new_method_return(msg);
             if(uuid != NULL)
                 c_uuid = env->GetStringUTFChars(uuid, &isUuidCopy);
@@ -2267,9 +2281,11 @@ static jboolean writeResponseNative(JNIEnv *env, jobject object,
                                  DBUS_TYPE_STRING, &c_uuid,
                                  DBUS_TYPE_INVALID);
         } else {
-            LOGE("%s: writeResponseNative status is false", __FUNCTION__);
+            const char *c_errorString = env->GetStringUTFChars(errorString, NULL);
+            LOGE("%s: status %s", __FUNCTION__, c_errorString);
             reply = dbus_message_new_error(msg,
-                    DBUS_ERROR_FAILED, "GATT_ATTRIBUTE_NOT_FOUND");
+                    DBUS_ERROR_FAILED, c_errorString);
+            env->ReleaseStringUTFChars(errorString, c_errorString);
         }
 
         if (!reply) {
@@ -3164,14 +3180,14 @@ static JNINativeMethod sMethods[] = {
     {"addPrimarySdpNative", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;IIZ)Z", (void *)addPrimarySdpNative},
     {"notifyNative", "(Ljava/lang/String;II[BI)Z", (void *)notifyNative},
     {"indicateNative", "(Ljava/lang/String;II[BI)Z", (void *)indicateNative},
-    {"discoverPrimaryResponseNative", "(Ljava/lang/String;IIII)Z", (void *)discoverPrimaryResponseNative},
-    {"discoverPrimaryByUuidResponseNative", "(IIII)Z", (void *)discoverPrimaryByUuidResponseNative},
-    {"findIncludedResponseNative", "(Ljava/lang/String;IIIII)Z", (void *)findIncludedResponseNative},
-    {"discoverCharacteristicsResponseNative", "(Ljava/lang/String;IIIII)Z", (void *)discoverCharacteristicsResponseNative},
-    {"discoverCharacteristicDescriptorResponseNative", "(Ljava/lang/String;III)Z", (void *)discoverCharacteristicDescriptorResponseNative},
-    {"readByTypeResponseNative", "(Ljava/lang/String;I[BIII)Z", (void *)readByTypeResponseNative},
-    {"readResponseNative", "(Ljava/lang/String;[BIII)Z", (void *)readResponseNative},
-    {"writeResponseNative", "(Ljava/lang/String;II)Z", (void *)writeResponseNative},
+    {"discoverPrimaryResponseNative", "(Ljava/lang/String;Ljava/lang/String;III)Z", (void *)discoverPrimaryResponseNative},
+    {"discoverPrimaryByUuidResponseNative", "(Ljava/lang/String;III)Z", (void *)discoverPrimaryByUuidResponseNative},
+    {"findIncludedResponseNative", "(Ljava/lang/String;Ljava/lang/String;IIII)Z", (void *)findIncludedResponseNative},
+    {"discoverCharacteristicsResponseNative", "(Ljava/lang/String;Ljava/lang/String;IIII)Z", (void *)discoverCharacteristicsResponseNative},
+    {"discoverCharacteristicDescriptorResponseNative", "(Ljava/lang/String;Ljava/lang/String;II)Z", (void *)discoverCharacteristicDescriptorResponseNative},
+    {"readByTypeResponseNative", "(Ljava/lang/String;Ljava/lang/String;I[BII)Z", (void *)readByTypeResponseNative},
+    {"readResponseNative", "(Ljava/lang/String;Ljava/lang/String;[BII)Z", (void *)readResponseNative},
+    {"writeResponseNative", "(Ljava/lang/String;Ljava/lang/String;I)Z", (void *)writeResponseNative},
 };
 
 
