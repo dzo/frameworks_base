@@ -19,7 +19,9 @@ package com.android.server.location;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
+import android.content.ContentQueryMap;
 import android.content.ContentResolver;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -63,6 +65,7 @@ import android.util.Log;
 import android.util.NtpTrustedTime;
 import android.util.SparseIntArray;
 
+
 import com.android.internal.app.IBatteryStats;
 import com.android.internal.location.GpsNetInitiatedHandler;
 import com.android.internal.location.GpsNetInitiatedHandler.GpsNiNotification;
@@ -81,6 +84,9 @@ import java.util.Collection;
 import java.net.InetAddress;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
+import java.util.Map;
+import java.util.Observable;
+import java.util.Observer;
 
 /**
  * A GPS implementation of LocationProvider used by LocationManager.
@@ -980,9 +986,9 @@ public class GpsLocationProvider implements LocationProviderInterface {
             //We want to stop only if Hybrid is started and GPS is off
             if ((mHybridStarted == true) && (mGpsStarted == false)) {
                 mLocationFlags = LOCATION_INVALID;
-                mSingleShotHybrid =  false;
                 native_stop();
             }
+            mSingleShotHybrid =  false;
             mHybridStarted = false;
         }
         Log.d(TAG, "In handleEnableLocationTrackingHybrid.End. enable " +enable +
@@ -1260,16 +1266,6 @@ public class GpsLocationProvider implements LocationProviderInterface {
             currentContextType+" sGpsSetting: "+mGpsSetting + "currentAgpsSetting: "+
             currentAgpsSetting+" currentNetworkProvSetting: " + currentNetworkProvSetting
             + " currentWifiSetting: " + currentWifiSetting + " currentBatteryCharging: " + currentBatteryCharging);
-    }
-    public boolean updateSettings(boolean gpsSetting,boolean networkProvSetting,
-                                  boolean wifiSetting,boolean agpsSetting){
-        if (DEBUG) Log.d(TAG, "updateSettings");
-        return true;
-    }
-
-    public boolean updateBatteryStatus(boolean isBatteryCharging){
-        if (DEBUG) Log.d(TAG, "updateBatteryStatus");
-        return true;
     }
 
     public String getInternalState() {
@@ -2395,6 +2391,32 @@ public class GpsLocationProvider implements LocationProviderInterface {
     }
     public class HybridLocationProvider implements LocationProviderInterface {
         private static final String TAG1 = "HybridProvider";
+        // for Settings change notification
+        private ContentQueryMap mSettings;
+
+        public HybridLocationProvider() {
+            //It is assumed that GpsLocationProvider is alive and up at this point
+            if (DEBUG) Log.d(TAG1, "Created HybridLocationProvider instance");
+            // Register for Power Connectivity updates
+            IntentFilter batteryFilter = new IntentFilter();
+            batteryFilter.addAction(Intent.ACTION_POWER_CONNECTED);
+            batteryFilter.addAction(Intent.ACTION_POWER_DISCONNECTED);
+            mContext.registerReceiver(mBatteryBroadcastReceiver, batteryFilter);
+
+            // listen for settings changes
+            ContentResolver resolver = mContext.getContentResolver();
+            Cursor settingsCursor = resolver.query(Settings.Secure.CONTENT_URI,
+                    new String[] {Settings.System.NAME,Settings.System.VALUE},
+                    "(" + Settings.System.NAME + "=?) or ("
+                        + Settings.System.NAME + "=?) or ("
+                        + Settings.System.NAME + "=?) ",
+                    new String[]{Settings.Secure.LOCATION_PROVIDERS_ALLOWED,
+                        Settings.Secure.WIFI_ON, Settings.Secure.ASSISTED_GPS_ENABLED},
+                        null);
+            mSettings = new ContentQueryMap(settingsCursor, Settings.System.NAME, true, mHandler);
+            SettingsObserver settingsObserver = new SettingsObserver();
+            mSettings.addObserver(settingsObserver);
+        }
 
         public String getName() {
             if (DEBUG) Log.d(TAG1, "getName");
@@ -2595,7 +2617,7 @@ public class GpsLocationProvider implements LocationProviderInterface {
             return return_value;
         }
 
-        public boolean updateSettings(boolean gpsSetting,boolean networkProvSetting,
+        private boolean updateSettings(boolean gpsSetting,boolean networkProvSetting,
                                       boolean wifiSetting,boolean agpsSetting){
            Log.d(TAG1, "updateSettings invoked from LMS and setting values. Gps:"+
                                 gpsSetting +" GNP:"+ networkProvSetting+" WiFi:"+ wifiSetting+
@@ -2615,8 +2637,8 @@ public class GpsLocationProvider implements LocationProviderInterface {
            }
            return true;
         }
-        public boolean updateBatteryStatus(boolean isBatteryCharging){
-            Log.d(TAG, "updateBatteryStatus invoked from LMS and setting values. isBatteryCharging: " +
+        private boolean updateBatteryStatus(boolean isBatteryCharging){
+            Log.d(TAG, "updateBatteryStatus invoked and setting values. isBatteryCharging: " +
                                  isBatteryCharging);
             synchronized (mWakeLock) {
                 mWakeLock.acquire();
@@ -2633,6 +2655,46 @@ public class GpsLocationProvider implements LocationProviderInterface {
         public int getCapability(){
             if (DEBUG) Log.d(TAG1, "getCapability");
             return 0;
+        }
+
+        private final BroadcastReceiver mBatteryBroadcastReceiver = new BroadcastReceiver() {
+           @Override
+           public void onReceive(Context context, Intent intent) {
+               String action = intent.getAction();
+
+               if(Intent.ACTION_POWER_CONNECTED.equals(action)) {
+                   updateBatteryStatus(true);
+                   if (DEBUG) Log.d(TAG1,"Battery.update POWER_CONNECTED");
+
+               } else if(Intent.ACTION_POWER_DISCONNECTED.equals(action)) {
+                   updateBatteryStatus(false);
+                   if (DEBUG) Log.d(TAG1,"Battery.updatePOWER_DISCONNECTED");
+               }
+           }
+        };
+
+        private final class SettingsObserver implements Observer {
+            public void update(Observable o, Object arg) {
+                if (DEBUG) Log.d(TAG1,  "SettingsObserver.update invoked ");
+                //Will read the Settings values & determine if anything changed there
+                Map<String, ContentValues> kvs = ((ContentQueryMap)o).getRows();
+                if (null != kvs && !kvs.isEmpty()) {
+                    if (DEBUG) Log.d(TAG1, "in Settings.Secure.LOCATION_PROVIDERS_ALLOWED - "
+                    +kvs.get(Settings.Secure.LOCATION_PROVIDERS_ALLOWED).toString());
+                    String providers = kvs.get(Settings.Secure.LOCATION_PROVIDERS_ALLOWED).toString();
+                    boolean gpsSetting = providers.contains("gps");
+                    boolean networkProvSetting = providers.contains("network");
+                    boolean wifiSetting =  kvs.get(Settings.Secure.WIFI_ON).toString().contains("1");
+                    boolean agpsSetting =  kvs.get(Settings.Secure.ASSISTED_GPS_ENABLED).toString().contains("1");
+
+                    if (DEBUG) {
+                      Log.d(TAG1,  "SettingsObserver.update invoked and setting values. Gps:"+
+                             gpsSetting +" GNP:"+ networkProvSetting+" WiFi:"+ wifiSetting+
+                             " Agps:"+ agpsSetting);
+                    }
+                    updateSettings(gpsSetting,networkProvSetting,wifiSetting,agpsSetting);
+                 }
+            }
         }
     }
 }
