@@ -576,6 +576,8 @@ public abstract class DataConnection extends StateMachine {
             result = updateLinkProperty(response).setupResult;
         }
 
+        mRetryOverride = getSuggestedRetryTime(ar);
+
         return result;
     }
 
