@@ -113,7 +113,7 @@ class MSimKeyguardStatusViewManager extends KeyguardStatusViewManager {
      * @param simState
      */
     private void updateCarrierStateWithSimStatus(State simState, int subscription) {
-        if (DEBUG) Log.d(TAG, "updateCarrierStateWithSimStatus(), simState = " + simState +
+        Log.d(TAG, "updateCarrierStateWithSimStatus(), simState = " + simState +
                 " subscription = " + subscription);
 
         int carrierHelpTextId = 0;
@@ -182,6 +182,8 @@ class MSimKeyguardStatusViewManager extends KeyguardStatusViewManager {
                 mEmergencyButtonEnabledBecauseSimLocked = true;
                 break;
         }
+        Log.d(TAG, "updateCarrierStateWithSimStatus: Sim Status = " + mMSimStatus[subscription]
+                + ", Carrier = " + mCarrierTextSub[subscription]);
         setCarrierText();
         setCarrierHelpText(carrierHelpTextId);
         updateEmergencyCallButtonState(mPhoneState);
