@@ -2725,6 +2725,7 @@ public class GpsLocationProvider implements LocationProviderInterface {
             public void update(Observable o, Object arg) {
                 if (DEBUG) Log.d(TAG1,  "SettingsObserver.update invoked ");
                 boolean enhLocationServicesSetting = false;
+                String enhLocationServicesSettingString = null;
                 //Will read the Settings values & determine if anything changed there
                 Map<String, ContentValues> kvs = ((ContentQueryMap)o).getRows();
                 if (null != kvs && !kvs.isEmpty()) {
@@ -2735,20 +2736,26 @@ public class GpsLocationProvider implements LocationProviderInterface {
                     boolean networkProvSetting = providers.contains("network");
                     boolean wifiSetting =  kvs.get(Settings.Secure.WIFI_ON).toString().contains("1");
                     boolean agpsSetting =  kvs.get(Settings.Secure.ASSISTED_GPS_ENABLED).toString().contains("1");
-                    String enhLocationServicesSettingString =
-                        kvs.get(LocationManager.ENH_LOCATION_SERVICES_ENABLED).toString();
-                    if(enhLocationServicesSettingString != null) {
-                        enhLocationServicesSetting =
-                            enhLocationServicesSettingString.contains("1");
+
+                   if (kvs.containsKey(LocationManager.ENH_LOCATION_SERVICES_ENABLED) == true) {
+                       enhLocationServicesSettingString =
+                            kvs.get(LocationManager.ENH_LOCATION_SERVICES_ENABLED).toString();
+                       if(enhLocationServicesSettingString != null) {
+                         enhLocationServicesSetting =
+                             enhLocationServicesSettingString.contains("1");
+                       } else {
+                         Log.e(TAG1, "Got null pinter for call to kvs.get(LocationManager.ENH_LOCATION_SERVICES_ENABLED)");
+                       }
                     } else {
-                      Log.e(TAG1, "Got null pinter for call to kvs.get(LocationManager.ENH_LOCATION_SERVICES_ENABLED)");
+                      Log.e(TAG1, "kvs.containsKey(ENH_LOCATION_SERVICES_ENABLED) returned false");
                     }
-                    if (DEBUG) {
+
+                  if (DEBUG) {
                       Log.d(TAG1,  "SettingsObserver.update invoked and setting values. Gps:"+
                              gpsSetting +" GNP:"+ networkProvSetting+" WiFi:"+ wifiSetting+
                              " Agps:"+ agpsSetting+ " enhLocationServicesSettingString: "+
                             enhLocationServicesSettingString);
-                    }
+                   }
                     updateSettings(gpsSetting,networkProvSetting,wifiSetting,
                                    agpsSetting,enhLocationServicesSetting);
                  }
