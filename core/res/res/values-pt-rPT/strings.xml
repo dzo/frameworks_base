@@ -137,13 +137,13 @@
     <string name="turn_off_radio" msgid="8198784949987062346">"Desactivar sem fios"</string>
     <string name="screen_lock" msgid="799094655496098153">"Bloqueio de ecrã"</string>
     <string name="power_off" msgid="4266614107412865048">"Desligar"</string>
-    <string name="silent_mode_silent" msgid="319298163018473078">"Campainha desativada"</string>
+    <string name="silent_mode_silent" msgid="319298163018473078">"Campainha desactivada"</string>
     <string name="silent_mode_vibrate" msgid="7072043388581551395">"Campainha em vibração."</string>
-    <string name="silent_mode_ring" msgid="8592241816194074353">"Campainha ativada"</string>
-    <string name="shutdown_progress" msgid="2281079257329981203">"A encerrar..."</string>
+    <string name="silent_mode_ring" msgid="8592241816194074353">"Campainha activada"</string>
+    <string name="shutdown_progress" msgid="2281079257329981203">"A desligar..."</string>
     <string name="shutdown_confirm" product="tablet" msgid="3385745179555731470">"O seu tablet irá encerrar."</string>
-    <string name="shutdown_confirm" product="default" msgid="649792175242821353">"O seu telefone irá encerrar."</string>
-    <string name="shutdown_confirm_question" msgid="6656441286856415014">"Pretende encerrar?"</string>
+    <string name="shutdown_confirm" product="default" msgid="649792175242821353">"O seu telefone irá ser desligado."</string>
+    <string name="shutdown_confirm_question" msgid="6656441286856415014">"Pretende desligar?"</string>
     <string name="recent_tasks_title" msgid="3691764623638127888">"Recente"</string>
     <string name="no_recent_tasks" msgid="279702952298056674">"Nenhuma aplicação recente."</string>
     <string name="global_actions" product="tablet" msgid="408477140088053665">"Opções do tablet"</string>
@@ -173,7 +173,7 @@
     <string name="permgrouplab_accounts" msgid="3359646291125325519">"As suas contas"</string>
     <string name="permgroupdesc_accounts" msgid="4948732641827091312">"Aceda às contas disponíveis."</string>
     <string name="permgrouplab_hardwareControls" msgid="7998214968791599326">"Controlos de hardware"</string>
-    <string name="permgroupdesc_hardwareControls" msgid="4357057861225462702">"Aceda diretamente ao hardware no telefone."</string>
+    <string name="permgroupdesc_hardwareControls" msgid="4357057861225462702">"Aceda directamente ao hardware no telefone."</string>
     <string name="permgrouplab_phoneCalls" msgid="9067173988325865923">"Chamadas telefónicas"</string>
     <string name="permgroupdesc_phoneCalls" msgid="7489701620446183770">"Monitorize, grave e processe chamadas telefónicas."</string>
     <string name="permgrouplab_systemTools" msgid="4652191644082714048">"Ferramentas do sistema"</string>
@@ -908,7 +908,7 @@
     <string name="aerr_process" msgid="4507058997035697579">"Lamentamos, o processo <xliff:g id="PROCESS">%1$s</xliff:g> foi interrompido."</string>
     <string name="anr_title" msgid="4351948481459135709"></string>
     <string name="anr_activity_application" msgid="8339738283149696827">"A <xliff:g id="APPLICATION">%2$s</xliff:g> não está a responder."\n\n"Pretende encerrá-la?"</string>
-    <string name="anr_activity_process" msgid="7018289416670457797">"A atividade <xliff:g id="ACTIVITY">%1$s</xliff:g> não está a responder."\n\n"Pretende encerrá-la?"</string>
+    <string name="anr_activity_process" msgid="7018289416670457797">"A actividade <xliff:g id="ACTIVITY">%1$s</xliff:g> não está a responder."\n\n"Pretende encerrá-la?"</string>
     <string name="anr_application_process" msgid="7208175830253210526">"A <xliff:g id="APPLICATION">%1$s</xliff:g> não está a responder. Pretende encerrá-la?"</string>
     <string name="anr_process" msgid="306819947562555821">"O processo <xliff:g id="PROCESS">%1$s</xliff:g> não está a responder."\n\n"Pretende encerrá-lo?"</string>
     <string name="force_close" msgid="8346072094521265605">"OK"</string>
@@ -919,11 +919,11 @@
     <string name="launch_warning_original" msgid="188102023021668683">"<xliff:g id="APP_NAME">%1$s</xliff:g> foi originalmente iniciado."</string>
     <string name="screen_compat_mode_scale" msgid="3202955667675944499">"Escala"</string>
     <string name="screen_compat_mode_show" msgid="4013878876486655892">"Mostrar sempre"</string>
-    <string name="screen_compat_mode_hint" msgid="2953716574198046484">"Reativar modo através das Definições &gt; Aplicações &gt; Gerir aplicações."</string>
+    <string name="screen_compat_mode_hint" msgid="2953716574198046484">"Reactivar modo através das Definições &gt; Aplicações &gt; Gerir aplicações."</string>
     <string name="smv_application" msgid="295583804361236288">"A aplicação <xliff:g id="APPLICATION">%1$s</xliff:g> (processo <xliff:g id="PROCESS">%2$s</xliff:g>) violou a política StrictMode auto-imposta."</string>
     <string name="smv_process" msgid="5120397012047462446">"O processo <xliff:g id="PROCESS">%1$s</xliff:g> violou a política StrictMode auto-imposta."</string>
-    <string name="android_upgrading_title" msgid="378740715658358071">"O Android está a ser atualizado..."</string>
-    <string name="android_upgrading_apk" msgid="274409861603566003">"A otimizar a aplicação <xliff:g id="NUMBER_0">%1$d</xliff:g> de <xliff:g id="NUMBER_1">%2$d</xliff:g>."</string>
+    <string name="android_upgrading_title" msgid="378740715658358071">"O Android está a ser actualizado..."</string>
+    <string name="android_upgrading_apk" msgid="274409861603566003">"A optimizar a aplicação <xliff:g id="NUMBER_0">%1$d</xliff:g> de <xliff:g id="NUMBER_1">%2$d</xliff:g>."</string>
     <string name="android_upgrading_starting_apps" msgid="7959542881906488763">"A iniciar as aplicações."</string>
     <string name="android_upgrading_complete" msgid="1405954754112999229">"A concluir o arranque."</string>
     <string name="heavy_weight_notification" msgid="9087063985776626166">"<xliff:g id="APP">%1$s</xliff:g> em execução"</string>
@@ -938,7 +938,7 @@
     <string name="volume_ringtone" msgid="6885421406845734650">"Volume da campainha"</string>
     <string name="volume_music" msgid="5421651157138628171">"Volume de multimédia"</string>
     <string name="volume_music_hint_playing_through_bluetooth" msgid="9165984379394601533">"A reproduzir através de Bluetooth"</string>
-    <string name="volume_music_hint_silent_ringtone_selected" msgid="6158339745293431194">"Toque silencioso selecionado"</string>
+    <string name="volume_music_hint_silent_ringtone_selected" msgid="6158339745293431194">"Toque silencioso seleccionado"</string>
     <string name="volume_call" msgid="3941680041282788711">"Volume da chamada recebida"</string>
     <string name="volume_bluetooth_call" msgid="2002891926351151534">"Volume de chamada recebida em Bluetooth"</string>
     <string name="volume_alarm" msgid="1985191616042689100">"Volume do alarme"</string>
@@ -968,7 +968,7 @@
     <string name="wifi_watchdog_network_disabled" msgid="7904214231651546347">"Não foi possível ligar a Wi-Fi"</string>
     <string name="wifi_watchdog_network_disabled_detailed" msgid="4917472096696322767">" tem uma ligação à internet fraca."</string>
     <string name="wifi_p2p_dialog_title" msgid="97611782659324517">"Wi-Fi Direct"</string>
-    <string name="wifi_p2p_turnon_message" msgid="2804722042556269129">"Iniciar operação Wi-Fi Direct. Isto irá desativar a operação do cliente/zona Wi-Fi."</string>
+    <string name="wifi_p2p_turnon_message" msgid="2804722042556269129">"Iniciar operação Wi-Fi Direct. Isto irá desactivar a operação do cliente/zona Wi-Fi."</string>
     <string name="wifi_p2p_failed_message" msgid="1820097493844848281">"Não foi possível iniciar o Wi-Fi Direct"</string>
     <string name="wifi_p2p_pbc_go_negotiation_request_message" msgid="3170321684621420428">"Pedido de configuração de Wi-Fi Direct de <xliff:g id="P2P_DEVICE_ADDRESS">%1$s</xliff:g>. Clique em OK para aceitar."</string>
     <string name="wifi_p2p_pin_go_negotiation_request_message" msgid="5177412094633377308">"Pedido de configuração de ligação Wi-Fi Direct de <xliff:g id="P2P_DEVICE_ADDRESS">%1$s</xliff:g>. Introduza o PIN para prosseguir."</string>
