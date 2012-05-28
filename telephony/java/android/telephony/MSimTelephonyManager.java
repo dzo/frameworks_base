@@ -142,7 +142,12 @@ public class MSimTelephonyManager extends TelephonyManager {
         }
     }
 
-    private int getPhoneTypeFromProperty(int subscription) {
+    @Override
+    protected int getPhoneTypeFromProperty() {
+        return getPhoneTypeFromProperty(getDefaultSubscription());
+    }
+
+    protected int getPhoneTypeFromProperty(int subscription) {
         String type =
             getTelephonyProperty
                 (TelephonyProperties.CURRENT_ACTIVE_PHONE, subscription, null);
@@ -170,6 +175,10 @@ public class MSimTelephonyManager extends TelephonyManager {
     //
     //
 
+    @Override
+    public String getNetworkOperatorName() {
+        return getNetworkOperatorName(getDefaultSubscription());
+    }
     /**
      * Returns the alphabetic name of current registered operator
      * for a particular subscription.
@@ -186,6 +195,10 @@ public class MSimTelephonyManager extends TelephonyManager {
                 subscription, "");
     }
 
+    @Override
+    public String getNetworkOperator() {
+        return getNetworkOperator(getDefaultSubscription());
+    }
     /**
      * Returns the numeric name (MCC+MNC) of current registered operator
      * for a particular subscription.
@@ -203,6 +216,10 @@ public class MSimTelephonyManager extends TelephonyManager {
                 subscription, "");
      }
 
+    @Override
+    public boolean isNetworkRoaming() {
+        return isNetworkRoaming(getDefaultSubscription());
+    }
     /**
      * Returns true if the device is considered roaming on the current
      * network for a subscription.
@@ -215,6 +232,23 @@ public class MSimTelephonyManager extends TelephonyManager {
         if (!isMultiSimEnabled) return isNetworkRoaming();
         return "true".equals(getTelephonyProperty(TelephonyProperties.PROPERTY_OPERATOR_ISROAMING,
              subscription, null));
+    }
+
+    @Override
+    public String getNetworkCountryIso() {
+        return getNetworkCountryIso(getDefaultSubscription());
+    }
+    /**
+     * Returns the ISO country code equivalent of the current registered
+     * operator's MCC (Mobile Country Code).
+     * <p>
+     * Availability: Only when user is registered to a network. Result may be
+     * unreliable on CDMA networks (use {@link #getPhoneType()} to determine if
+     * on a CDMA network).
+     */
+    public String getNetworkCountryIso(int subscription) {
+        return getTelephonyProperty(TelephonyProperties.PROPERTY_OPERATOR_ISO_COUNTRY,
+                subscription, "");
     }
 
     /**
@@ -295,6 +329,10 @@ public class MSimTelephonyManager extends TelephonyManager {
         }
     }
 
+    @Override
+    public int getSimState() {
+        return getSimState(getDefaultSubscription());
+    }
     /**
      * Returns a constant indicating the state of the
      * device SIM card in a slot.
@@ -336,6 +374,49 @@ public class MSimTelephonyManager extends TelephonyManager {
         else {
             return SIM_STATE_UNKNOWN;
         }
+    }
+
+    @Override
+    public String getSimOperator() {
+        return getSimOperator(getDefaultSubscription());
+    }
+    /**
+     * Returns the MCC+MNC (mobile country code + mobile network code) of the
+     * provider of the SIM. 5 or 6 decimal digits.
+     * <p>
+     * Availability: SIM state must be {@link #SIM_STATE_READY}
+     *
+     * @see #getSimState
+     */
+    public String getSimOperator(int slotId) {
+        return getTelephonyProperty(TelephonyProperties.PROPERTY_ICC_OPERATOR_NUMERIC, slotId, "");
+    }
+
+    @Override
+    public String getSimOperatorName() {
+        return getSimOperatorName(getDefaultSubscription());
+    }
+    /**
+     * Returns the Service Provider Name (SPN).
+     * <p>
+     * Availability: SIM state must be {@link #SIM_STATE_READY}
+     *
+     * @see #getSimState
+     */
+    public String getSimOperatorName(int slotId) {
+        return getTelephonyProperty(TelephonyProperties.PROPERTY_ICC_OPERATOR_ALPHA, slotId, "");
+    }
+
+    @Override
+    public String getSimCountryIso() {
+        return getSimCountryIso(getDefaultSubscription());
+    }
+    /**
+     * Returns the ISO country code equivalent for the SIM provider's country code.
+     */
+    public String getSimCountryIso(int slotId) {
+        return getTelephonyProperty(TelephonyProperties.PROPERTY_ICC_OPERATOR_ISO_COUNTRY,
+                slotId, "");
     }
 
     /**

@@ -19277,11 +19277,16 @@ package android.telephony {
     method public int getDefaultSubscription();
     method public java.lang.String getDeviceId(int);
     method public java.lang.String getLine1Number(int);
+    method public java.lang.String getNetworkCountryIso(int);
     method public java.lang.String getNetworkOperator(int);
     method public java.lang.String getNetworkOperatorName(int);
     method public static int getNetworkType(int);
+    method protected int getPhoneTypeFromProperty(int);
     method public int getPreferredDataSubscription();
     method public int getPreferredVoiceSubscription();
+    method public java.lang.String getSimCountryIso(int);
+    method public java.lang.String getSimOperator(int);
+    method public java.lang.String getSimOperatorName(int);
     method public java.lang.String getSimSerialNumber(int);
     method public int getSimState(int);
     method public java.lang.String getSubscriberId(int);
@@ -19513,6 +19518,7 @@ package android.telephony {
     method public int getNetworkType();
     method public int getPhoneCount();
     method public int getPhoneType();
+    method protected int getPhoneTypeFromProperty();
     method public java.lang.String getSimCountryIso();
     method public java.lang.String getSimOperator();
     method public java.lang.String getSimOperatorName();

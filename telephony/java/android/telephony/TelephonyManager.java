@@ -358,7 +358,7 @@ public class TelephonyManager {
         return getCurrentPhoneType();
     }
 
-    private int getPhoneTypeFromProperty() {
+    protected int getPhoneTypeFromProperty() {
         int type =
             SystemProperties.getInt(TelephonyProperties.CURRENT_ACTIVE_PHONE,
                     getPhoneTypeFromNetworkType());
