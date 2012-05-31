@@ -1121,7 +1121,11 @@ public final class BluetoothDeviceProfileState extends StateMachine {
                     ret =  mHeadsetService.acceptIncomingConnect(mDevice);
                 } else if (mHeadsetState == BluetoothHeadset.STATE_DISCONNECTED) {
                     writeTimerValue(0);
-                    handleConnectionOfOtherProfiles(command);
+                    if(!mAdapter.isHostPatchRequired(mDevice,
+                         BluetoothAdapter.HOST_PATCH_AVOID_AUTO_CONNECT)) {
+                         Log.d(TAG, "Avoid Connecting Other Profiles Incoming HFP");
+                         handleConnectionOfOtherProfiles(command);
+                    }
                     ret = mHeadsetService.createIncomingConnect(mDevice);
                 }
                 break;
@@ -1133,7 +1137,11 @@ public final class BluetoothDeviceProfileState extends StateMachine {
                 } else {
                     writeTimerValue(0);
                     ret = mA2dpService.allowIncomingConnect(mDevice, true);
-                    handleConnectionOfOtherProfiles(command);
+                    if(!mAdapter.isHostPatchRequired(mDevice,
+                         BluetoothAdapter.HOST_PATCH_AVOID_AUTO_CONNECT)) {
+                         Log.d(TAG, "Avoid Connecting Other Profiles Incoming A2DP");
+                         handleConnectionOfOtherProfiles(command);
+                    }
                 }
                 break;
             case CONNECT_HID_INCOMING:
