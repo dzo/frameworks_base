@@ -1826,8 +1826,7 @@ public class WifiStateMachine extends StateMachine {
                 if (DBG) log("interfaceAddresses:" + interfaceAddresses.toString());
 
                 for (InterfaceAddress ia : interfaceAddresses) {
-                    InetAddress addr = NetworkUtils.getNetworkPart(ia.getAddress(),
-                            ia.getNetworkPrefixLength());
+                    InetAddress addr = ia.getAddress();
                     if (!addr.isLinkLocalAddress() &&
                                 !linkProperties.getAddresses().contains(addr)) {
                         linkProperties.addLinkAddress(new LinkAddress(ia));
