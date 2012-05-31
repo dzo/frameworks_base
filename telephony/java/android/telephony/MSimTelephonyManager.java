@@ -99,7 +99,7 @@ public class MSimTelephonyManager extends TelephonyManager {
      * @param subscription of which deviceID is returned
      */
     public String getDeviceId(int subscription) {
-        if (!isMultiSimEnabled) return getDeviceId();
+        if (!isMultiSimEnabled) return super.getDeviceId();
 
         try {
             return getMSimSubscriberInfo().getDeviceId(subscription);
@@ -121,7 +121,7 @@ public class MSimTelephonyManager extends TelephonyManager {
      * @hide
      */
     public int getCurrentPhoneType(int subscription) {
-        if (!isMultiSimEnabled) return getCurrentPhoneType();
+        if (!isMultiSimEnabled) return super.getCurrentPhoneType();
 
         try{
             ITelephonyMSim telephony = getITelephonyMSim();
@@ -189,7 +189,7 @@ public class MSimTelephonyManager extends TelephonyManager {
      * @param subscription
      */
     public String getNetworkOperatorName(int subscription) {
-        if (!isMultiSimEnabled) return getNetworkOperatorName();
+        if (!isMultiSimEnabled) return super.getNetworkOperatorName();
 
         return getTelephonyProperty(TelephonyProperties.PROPERTY_OPERATOR_ALPHA,
                 subscription, "");
@@ -210,7 +210,7 @@ public class MSimTelephonyManager extends TelephonyManager {
      * @param subscription
      */
     public String getNetworkOperator(int subscription) {
-        if (!isMultiSimEnabled) return getNetworkOperator();
+        if (!isMultiSimEnabled) return super.getNetworkOperator();
 
         return getTelephonyProperty(TelephonyProperties.PROPERTY_OPERATOR_NUMERIC,
                 subscription, "");
@@ -229,7 +229,7 @@ public class MSimTelephonyManager extends TelephonyManager {
      * @param subscription
      */
     public boolean isNetworkRoaming(int subscription) {
-        if (!isMultiSimEnabled) return isNetworkRoaming();
+        if (!isMultiSimEnabled) return super.isNetworkRoaming();
         return "true".equals(getTelephonyProperty(TelephonyProperties.PROPERTY_OPERATOR_ISROAMING,
              subscription, null));
     }
@@ -316,7 +316,7 @@ public class MSimTelephonyManager extends TelephonyManager {
      * @param subscription for which icc card presence is checked
      */
     public boolean hasIccCard(int subscription) {
-        if (!isMultiSimEnabled) return hasIccCard();
+        if (!isMultiSimEnabled) return super.hasIccCard();
 
         try {
             return getITelephonyMSim().hasIccCard(subscription);
@@ -348,7 +348,7 @@ public class MSimTelephonyManager extends TelephonyManager {
      * @see #SIM_STATE_CARD_IO_ERROR
      */
     public int getSimState(int slotId) {
-        if (!isMultiSimEnabled) return getSimState();
+        if (!isMultiSimEnabled) return super.getSimState();
 
         String prop =
             getTelephonyProperty(TelephonyProperties.PROPERTY_SIM_STATE, slotId, "");
@@ -430,7 +430,7 @@ public class MSimTelephonyManager extends TelephonyManager {
      * @hide
      */
     public int getLteOnCdmaMode(int subscription) {
-        if (!isMultiSimEnabled) return getLteOnCdmaMode();
+        if (!isMultiSimEnabled) return super.getLteOnCdmaMode();
         try {
             return getITelephonyMSim().getLteOnCdmaMode(subscription);
         } catch (RemoteException ex) {
@@ -450,7 +450,7 @@ public class MSimTelephonyManager extends TelephonyManager {
      *   {@link android.Manifest.permission#READ_PHONE_STATE READ_PHONE_STATE}
      */
     public String getSimSerialNumber(int subscription) {
-        if (!isMultiSimEnabled) return getSimSerialNumber();
+        if (!isMultiSimEnabled) return super.getSimSerialNumber();
         try {
             return getMSimSubscriberInfo().getIccSerialNumber(subscription);
         } catch (RemoteException ex) {
@@ -478,7 +478,7 @@ public class MSimTelephonyManager extends TelephonyManager {
      * @param subscription whose subscriber id is returned
      */
     public String getSubscriberId(int subscription) {
-        if (!isMultiSimEnabled) return getSubscriberId();
+        if (!isMultiSimEnabled) return super.getSubscriberId();
         try {
             return getMSimSubscriberInfo().getSubscriberId(subscription);
         } catch (RemoteException ex) {
@@ -499,7 +499,7 @@ public class MSimTelephonyManager extends TelephonyManager {
      * @param subscription whose phone number for line 1 is returned
      */
     public String getLine1Number(int subscription) {
-        if (!isMultiSimEnabled) return getLine1Number();
+        if (!isMultiSimEnabled) return super.getLine1Number();
         try {
             return getMSimSubscriberInfo().getLine1Number(subscription);
         } catch (RemoteException ex) {
@@ -522,7 +522,7 @@ public class MSimTelephonyManager extends TelephonyManager {
      * nobody seems to call this.
      */
     public String getLine1AlphaTag(int subscription) {
-        if (!isMultiSimEnabled) return getLine1AlphaTag();
+        if (!isMultiSimEnabled) return super.getLine1AlphaTag();
         try {
             return getMSimSubscriberInfo().getLine1AlphaTag(subscription);
         } catch (RemoteException ex) {
@@ -542,7 +542,7 @@ public class MSimTelephonyManager extends TelephonyManager {
      * @param subscription whose voice mail number is returned
      */
     public String getVoiceMailNumber(int subscription) {
-        if (!isMultiSimEnabled) return getVoiceMailNumber();
+        if (!isMultiSimEnabled) return super.getVoiceMailNumber();
         try {
             return getMSimSubscriberInfo().getVoiceMailNumber(subscription);
         } catch (RemoteException ex) {
@@ -563,7 +563,7 @@ public class MSimTelephonyManager extends TelephonyManager {
      * @hide
      */
     public String getCompleteVoiceMailNumber(int subscription) {
-        if (!isMultiSimEnabled) return getCompleteVoiceMailNumber();
+        if (!isMultiSimEnabled) return super.getCompleteVoiceMailNumber();
         try {
             return getMSimSubscriberInfo().getCompleteVoiceMailNumber(subscription);
         } catch (RemoteException ex) {
@@ -584,7 +584,7 @@ public class MSimTelephonyManager extends TelephonyManager {
      * @hide
      */
     public int getVoiceMessageCount(int subscription) {
-        if (!isMultiSimEnabled) return getVoiceMessageCount();
+        if (!isMultiSimEnabled) return super.getVoiceMessageCount();
         try {
             return getITelephonyMSim().getVoiceMessageCount(subscription);
         } catch (RemoteException ex) {
@@ -604,7 +604,7 @@ public class MSimTelephonyManager extends TelephonyManager {
      * @param subscription whose alphabetic identifier associated with the voice mail number is returned
      */
     public String getVoiceMailAlphaTag(int subscription) {
-        if (!isMultiSimEnabled) return getVoiceMailAlphaTag();
+        if (!isMultiSimEnabled) return super.getVoiceMailAlphaTag();
         try {
             return getMSimSubscriberInfo().getVoiceMailAlphaTag(subscription);
         } catch (RemoteException ex) {
@@ -630,7 +630,7 @@ public class MSimTelephonyManager extends TelephonyManager {
      * @param subscription whose call state is returned
      */
     public int getCallState(int subscription) {
-        if (!isMultiSimEnabled) return getCallState();
+        if (!isMultiSimEnabled) return super.getCallState();
         try {
             return getITelephonyMSim().getCallState(subscription);
         } catch (RemoteException ex) {
@@ -653,7 +653,7 @@ public class MSimTelephonyManager extends TelephonyManager {
      * @see #DATA_ACTIVITY_DORMANT
      */
     public int getDataActivity() {
-        if (!isMultiSimEnabled) return getDataActivity();
+        if (!isMultiSimEnabled) return super.getDataActivity();
         try {
             return getITelephonyMSim().getDataActivity();
         } catch (RemoteException ex) {
@@ -675,7 +675,7 @@ public class MSimTelephonyManager extends TelephonyManager {
      * @see #DATA_SUSPENDED
      */
     public int getDataState() {
-        if (!isMultiSimEnabled) return getDataState();
+        if (!isMultiSimEnabled) return super.getDataState();
         try {
             return getITelephonyMSim().getDataState();
         } catch (RemoteException ex) {
@@ -743,7 +743,7 @@ public class MSimTelephonyManager extends TelephonyManager {
      * @hide
      */
     public int getCdmaEriIconIndex(int subscription) {
-        if (!isMultiSimEnabled) return getCdmaEriIconIndex();
+        if (!isMultiSimEnabled) return super.getCdmaEriIconIndex();
         try {
             return getITelephonyMSim().getCdmaEriIconIndex(subscription);
         } catch (RemoteException ex) {
@@ -762,7 +762,7 @@ public class MSimTelephonyManager extends TelephonyManager {
      * @hide
      */
     public int getCdmaEriIconMode(int subscription) {
-        if (!isMultiSimEnabled) return getCdmaEriIconMode();
+        if (!isMultiSimEnabled) return super.getCdmaEriIconMode();
         try {
             return getITelephonyMSim().getCdmaEriIconMode(subscription);
         } catch (RemoteException ex) {
@@ -779,7 +779,7 @@ public class MSimTelephonyManager extends TelephonyManager {
      * @hide
      */
     public String getCdmaEriText(int subscription) {
-        if (!isMultiSimEnabled) return getCdmaEriText();
+        if (!isMultiSimEnabled) return super.getCdmaEriText();
         try {
             return getITelephonyMSim().getCdmaEriText(subscription);
         } catch (RemoteException ex) {
