@@ -867,6 +867,8 @@ bool AudioFlinger::masterMute() const
 
 status_t AudioFlinger::setSessionVolume(int stream, float left, float right)
 {
+    AutoMutex lock(mLock);
+
     mLPALeftVol  = left;
     mLPARightVol = right;
     if( (mLPAOutput != NULL) && (mLPAStreamType == stream) ) {
