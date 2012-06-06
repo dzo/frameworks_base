@@ -20,6 +20,12 @@ endif
 ifeq ($(call is-board-platform-in-list,msm8660 msm8960),true)
     LOCAL_CFLAGS += -DTARGET8x60
 endif
+
+ifeq ($(strip $(TARGET_USES_ION)),true)
+    LOCAL_CFLAGS += -DUSE_ION
+endif
+
+
 include frameworks/base/media/libstagefright/codecs/common/Config.mk
 
 LOCAL_SRC_FILES:=                         \
