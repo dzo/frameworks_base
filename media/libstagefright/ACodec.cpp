@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 The Android Open Source Project
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -360,6 +361,7 @@ struct ACodec::FlushingOutputState : public ACodec::BaseState {
     FlushingOutputState(ACodec *codec);
 
 protected:
+    virtual PortMode getPortMode(OMX_U32 portIndex);
     virtual bool onMessageReceived(const sp<AMessage> &msg);
     virtual void stateEntered();
 
@@ -2864,6 +2866,14 @@ void ACodec::FlushingState::changeStateIfWeOwnAllBuffers() {
 
 ACodec::FlushingOutputState::FlushingOutputState(ACodec *codec)
     : BaseState(codec) {
+}
+
+ACodec::BaseState::PortMode ACodec::FlushingOutputState::getPortMode(OMX_U32 portIndex) {
+    if (portIndex == kPortIndexOutput)
+    {
+        return KEEP_BUFFERS;
+    }
+    return RESUBMIT_BUFFERS;
 }
 
 void ACodec::FlushingOutputState::stateEntered() {
