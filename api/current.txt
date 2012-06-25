@@ -3604,6 +3604,7 @@ package android.app {
     field public static final int DEFAULT_SOUND = 1; // 0x1
     field public static final int DEFAULT_VIBRATE = 2; // 0x2
     field public static final int FLAG_AUTO_CANCEL = 16; // 0x10
+    field public static final int FLAG_FORCE_LED_SCREEN_OFF = 256; // 0x100
     field public static final int FLAG_FOREGROUND_SERVICE = 64; // 0x40
     field public static final int FLAG_HIGH_PRIORITY = 128; // 0x80
     field public static final int FLAG_INSISTENT = 4; // 0x4
