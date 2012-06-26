@@ -2044,7 +2044,7 @@ public final class Settings {
         public static final String EXPANDED_FLASH_MODE = "expanded_flash_mode";
 
         /** @hide */
-        public static final String TORCH_STATE = "torch_state";
+//        public static final String TORCH_STATE = "torch_state";
 
         /** @hide */
         public static final String STATUS_BAR_BATTERY = "status_bar_battery";
